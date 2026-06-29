@@ -1,0 +1,6 @@
+respuestas.csv
+streamlit.log
+streamlit_err.log
+__pycache__/
+*.pyc
+.env

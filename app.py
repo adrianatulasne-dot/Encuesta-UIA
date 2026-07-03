@@ -293,8 +293,14 @@ if st.session_state.seccion == "📋 Encuesta":
         camara = st.session_state.camara_actual
         ncms_camara_todos = camaras_df[camaras_df["NbreCamara"] == camara]["PartidaNCM"].tolist()
 
+        # Si la cámara no tiene NCMs asignadas, saltar directamente a países
+        if not ncms_camara_todos and paso == 1:
+            st.info(f"La cámara **{camara}** no tiene subpartidas arancelarias asignadas. Podés continuar directamente a la selección de países.")
+            if st.button("Continuar →", type="primary"):
+                st.session_state.paso = 2; st.rerun()
+
         # ── PASO 1 — SUBPARTIDAS NCM ──────────────────────────────────────────
-        if paso == 1:
+        elif paso == 1:
             st.subheader("Subpartidas arancelarias (NCM)")
             st.caption(f"Cámara: **{camara}** | {len(ncms_camara_todos)} subpartidas asignadas — marcá las que son de tu interés.")
 
@@ -437,6 +443,7 @@ if st.session_state.seccion == "📋 Encuesta":
             st.caption("Seleccioná los acuerdos o negociaciones de interés para tu cámara.")
 
             st.markdown("#### ¿Le interesa el seguimiento de algún acuerdo o negociación en curso?")
+            st.caption("Tu selección queda registrada junto con el resto de la encuesta.")
             negs_sel = set(st.session_state.negs_sel)
             cols = st.columns(4)
             for i, neg in enumerate(NEGOCIACIONES):
@@ -537,10 +544,10 @@ if st.session_state.seccion == "📋 Encuesta":
                                 "Exporta": expo_v,
                                 "Importa": impo_v,
                                 "Conoce mercado": con_v,
-                                "Arg exporta (KUSD)": round(expo_a, 1),
-                                "Arg importa (KUSD)": round(impo_a, 1),
-                                f"{pais} exporta (KUSD)": round(expo_p, 1),
-                                f"{pais} importa (KUSD)": round(impo_p, 1),
+                                f"Arg → {pais} (KUSD)": round(expo_a, 1),
+                                f"Arg ← {pais} (KUSD)": round(impo_a, 1),
+                                f"{pais} → Mundo (KUSD)": round(expo_p, 1),
+                                f"{pais} ← Mundo (KUSD)": round(impo_p, 1),
                             })
 
                         if filas:

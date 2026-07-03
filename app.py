@@ -176,7 +176,7 @@ def fmt_usd(val):
 # ─── SESSION STATE ────────────────────────────────────────────────────────────
 def init():
     for k, v in {
-        "seccion": "📋 Encuesta",
+        "seccion": "📋 Interés comercial",
         "autenticado": False,
         "camara_actual": None,
         "paso": 1,
@@ -205,8 +205,8 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     st.markdown("---")
 
-    seccion = st.radio("", options=["📋 Encuesta", "🔍 Consulta de comercio"],
-                       index=0 if st.session_state.seccion == "📋 Encuesta" else 1,
+    seccion = st.radio("", options=["📋 Interés comercial", "🔍 Consulta de comercio exterior"],
+                       index=0 if st.session_state.seccion == "📋 Interés comercial" else 1,
                        label_visibility="collapsed")
     st.session_state.seccion = seccion
 
@@ -221,7 +221,7 @@ with st.sidebar:
 # ─── HEADER ───────────────────────────────────────────────────────────────────
 st.markdown("""
 <div style="text-align:center; margin-bottom:1rem;">
-  <h1>🇦🇷 UIA — Encuesta de Internacionalización</h1>
+  <h1>🇦🇷 UIA — Intereses de Internacionalización Comercial para Socios</h1>
   <p style="color:#7a9acc;">Departamento de Comercio y Negociaciones Internacionales</p>
 </div>
 """, unsafe_allow_html=True)
@@ -229,7 +229,7 @@ st.markdown("""
 # ═══════════════════════════════════════════════════════════════════════════════
 # SECCIÓN ENCUESTA
 # ═══════════════════════════════════════════════════════════════════════════════
-if st.session_state.seccion == "📋 Encuesta":
+if st.session_state.seccion == "📋 Interés comercial":
 
     paso = st.session_state.paso
 
@@ -564,7 +564,7 @@ if st.session_state.seccion == "📋 Encuesta":
                 with col1:
                     if st.button("← Volver", use_container_width=True): st.session_state.paso = 3; st.rerun()
                 with col3:
-                    if st.button("✅ Enviar encuesta", type="primary", use_container_width=True):
+                    if st.button("✅ Fin de consulta", type="primary", use_container_width=True):
                         registro = {
                             "fecha_ingreso":      datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                             "camara":             camara,

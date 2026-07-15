@@ -99,8 +99,10 @@ PAISES_CPTPP = [
     "Malasia", "México", "Nueva Zelanda", "Perú", "Reino Unido",
     "Singapur", "Vietnam",
 ]
-PAISES_EXTRA = ["Emiratos Árabes Unidos", "Indonesia", "Japón"]
-TODOS_PAISES = PAISES_CPTPP + ["Emiratos Árabes Unidos", "Indonesia"]
+TODOS_PAISES = PAISES_CPTPP + [
+    "Camboya", "Emiratos Árabes Unidos", "Filipinas",
+    "Indonesia", "Laos", "Myanmar", "Tailandia",
+]
 
 NEGOCIACIONES = [
     "Unión Europea", "Estados Unidos", "EFTA", "India",
@@ -113,6 +115,8 @@ NOMBRE_MUNDO = {
     "Chile": "Chile", "Japón": "Japon", "Malasia": "Malasia",
     "México": "Mexico", "Nueva Zelanda": "Nueva Zelanda", "Perú": "Peru",
     "Reino Unido": "Reino Unido", "Singapur": "Singapur", "Vietnam": "Vietnam",
+    "Camboya": "Camboya", "Filipinas": "Filipinas", "Laos": "Laos",
+    "Myanmar": "Myanmar", "Tailandia": "Tailandia",
 }
 
 PASOS = ["Subpartidas NCM", "Países e interés comercial", "Acuerdos y negociaciones", "Resumen"]
@@ -162,6 +166,8 @@ def cargar_datos():
         "México": ["218"], "Nueva Zelanda": ["504"], "Perú": ["222"],
         "Reino Unido": ["426"], "Singapur": ["333"], "Vietnam": ["337"],
         "Emiratos Árabes Unidos": ["448"], "Indonesia": ["316"],
+        "Camboya": ["306"], "Filipinas": ["312"], "Laos": ["324"],
+        "Myanmar": ["304"], "Tailandia": ["335"],
     }
 
     return ncm_df, camaras_df, claves_df, expo_arg, impo_arg, expo_mundo, impo_mundo, paisindec, pais_codindec
@@ -640,7 +646,7 @@ elif st.session_state.seccion == "📊 Indicadores macroeconómicos":
 else:
     st.markdown('<hr>', unsafe_allow_html=True)
 
-    pais_elegido = st.selectbox("País contraparte", options=["— Elegí un país —"] + PAISES_CPTPP, key="consulta_pais")
+    pais_elegido = st.selectbox("País contraparte", options=["— Elegí un país —"] + sorted(TODOS_PAISES), key="consulta_pais")
 
     col_s1, col_s2 = st.columns(2)
     with col_s1:

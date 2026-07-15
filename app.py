@@ -6,8 +6,9 @@ from datetime import datetime
 import json
 
 # ─── CONFIG ───────────────────────────────────────────────────────────────────
-DATA_DIR = Path(__file__).parent / "data_parquet"
-OUT_FILE = Path(__file__).parent / "respuestas.csv"
+DATA_DIR  = Path(__file__).parent / "data_parquet"
+FICHAS_DIR = Path(__file__).parent / "fichas"
+OUT_FILE  = Path(__file__).parent / "respuestas.csv"
 
 st.set_page_config(
     page_title="UIA – Internacionalización",
@@ -205,9 +206,9 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     st.markdown("---")
 
-    seccion = st.radio("", options=["📋 Interés comercial", "🔍 Consulta de comercio exterior"],
-                       index=0 if st.session_state.seccion == "📋 Interés comercial" else 1,
-                       label_visibility="collapsed")
+    opciones = ["📋 Interés comercial", "🔍 Consulta de comercio exterior", "📊 Indicadores macroeconómicos"]
+    idx = opciones.index(st.session_state.seccion) if st.session_state.seccion in opciones else 0
+    seccion = st.radio("", options=opciones, index=idx, label_visibility="collapsed")
     st.session_state.seccion = seccion
 
     if st.session_state.autenticado:
@@ -591,6 +592,37 @@ if st.session_state.seccion == "📋 Interés comercial":
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SECCIÓN CONSULTA
+# ═══════════════════════════════════════════════════════════════════════════════
+# SECCIÓN INDICADORES MACROECONÓMICOS
+# ═══════════════════════════════════════════════════════════════════════════════
+elif st.session_state.seccion == "📊 Indicadores macroeconómicos":
+    st.markdown('<hr>', unsafe_allow_html=True)
+    st.markdown("### Indicadores macroeconómicos por país")
+    st.caption("Seleccioná un país para ver su ficha de indicadores.")
+
+    FICHAS = {f.stem: f for f in sorted(FICHAS_DIR.glob("*.pdf"))}
+    pais_ficha = st.selectbox("País", options=["— Seleccioná un país —"] + list(FICHAS.keys()), key="ficha_pais")
+
+    if pais_ficha != "— Seleccioná un país —":
+        pdf_path = FICHAS[pais_ficha]
+        with open(pdf_path, "rb") as f:
+            pdf_bytes = f.read()
+
+        import base64
+        b64 = base64.b64encode(pdf_bytes).decode()
+        st.markdown(
+            f'<iframe src="data:application/pdf;base64,{b64}" width="100%" height="800px" style="border:none; border-radius:8px;"></iframe>',
+            unsafe_allow_html=True,
+        )
+        st.download_button(
+            label=f"⬇️ Descargar ficha {pais_ficha}",
+            data=pdf_bytes,
+            file_name=f"Indicadores_{pais_ficha}.pdf",
+            mime="application/pdf",
+        )
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SECCIÓN CONSULTA DE COMERCIO
 # ═══════════════════════════════════════════════════════════════════════════════
 else:
     st.markdown('<hr>', unsafe_allow_html=True)

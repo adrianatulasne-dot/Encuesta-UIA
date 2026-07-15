@@ -601,24 +601,24 @@ elif st.session_state.seccion == "📊 Indicadores macroeconómicos":
     st.caption("Seleccioná un país para ver su ficha de indicadores.")
 
     FICHAS = {f.stem: f for f in sorted(FICHAS_DIR.glob("*.pdf"))}
-    pais_ficha = st.selectbox("País", options=["— Seleccioná un país —"] + list(FICHAS.keys()), key="ficha_pais")
+    pais_ficha = st.selectbox(
+        "País", options=["— Seleccioná un país —"] + list(FICHAS.keys()),
+        key="ficha_pais", label_visibility="visible"
+    )
 
     if pais_ficha != "— Seleccioná un país —":
         pdf_path = FICHAS[pais_ficha]
         with open(pdf_path, "rb") as f:
             pdf_bytes = f.read()
 
-        import base64
-        b64 = base64.b64encode(pdf_bytes).decode()
-        st.markdown(
-            f'<iframe src="data:application/pdf;base64,{b64}" width="100%" height="800px" style="border:none; border-radius:8px;"></iframe>',
-            unsafe_allow_html=True,
-        )
+        st.info(f"📄 Ficha de indicadores macroeconómicos — **{pais_ficha}**")
         st.download_button(
-            label=f"⬇️ Descargar ficha {pais_ficha}",
+            label=f"⬇️ Abrir / Descargar ficha {pais_ficha} (PDF)",
             data=pdf_bytes,
             file_name=f"Indicadores_{pais_ficha}.pdf",
             mime="application/pdf",
+            use_container_width=True,
+            type="primary",
         )
 
 # ═══════════════════════════════════════════════════════════════════════════════

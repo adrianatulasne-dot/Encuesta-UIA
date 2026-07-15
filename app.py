@@ -38,10 +38,15 @@ button[aria-label="Close sidebar"], [data-testid="collapsedControl"] {
 [data-testid="stSelectbox"] span, [data-testid="stSelectbox"] p,
 [data-testid="stSelectbox"] svg { color: #ffffff !important; fill: #ffffff !important; }
 [data-baseweb="popover"], [data-baseweb="popover"] ul, [data-baseweb="popover"] li,
-[data-baseweb="menu"], [data-baseweb="menu"] ul, [data-baseweb="menu"] li {
+[data-baseweb="menu"], [data-baseweb="menu"] ul, [data-baseweb="menu"] li,
+[data-baseweb="select"] ul, [data-baseweb="select"] li,
+ul[role="listbox"], ul[role="listbox"] li,
+div[role="listbox"], div[role="listbox"] li,
+div[data-baseweb="popover"] > div, div[data-baseweb="popover"] > div > ul {
     background-color: #1a3a6b !important; color: #ffffff !important;
 }
-[data-baseweb="menu"] li:hover { background-color: #1565c0 !important; }
+ul[role="listbox"] li:hover, [data-baseweb="menu"] li:hover { background-color: #1565c0 !important; }
+div[data-baseweb="popover"] * { color: #ffffff !important; background-color: #1a3a6b !important; }
 input, textarea {
     background-color: #1a3a6b !important; color: #ffffff !important;
     border: 1px solid #3a6bc4 !important; border-radius: 6px !important;
@@ -602,8 +607,7 @@ elif st.session_state.seccion == "📊 Indicadores macroeconómicos":
 
     FICHAS = {f.stem: f for f in sorted(FICHAS_DIR.glob("*.pdf"))}
     pais_ficha = st.selectbox(
-        "País", options=["— Seleccioná un país —"] + list(FICHAS.keys()),
-        key="ficha_pais", label_visibility="visible"
+        "País", options=["— Seleccioná un país —"] + list(FICHAS.keys()), key="ficha_pais"
     )
 
     if pais_ficha != "— Seleccioná un país —":
@@ -611,15 +615,24 @@ elif st.session_state.seccion == "📊 Indicadores macroeconómicos":
         with open(pdf_path, "rb") as f:
             pdf_bytes = f.read()
 
-        st.info(f"📄 Ficha de indicadores macroeconómicos — **{pais_ficha}**")
         st.download_button(
-            label=f"⬇️ Abrir / Descargar ficha {pais_ficha} (PDF)",
+            label=f"⬇️ Descargar ficha {pais_ficha} (PDF)",
             data=pdf_bytes,
             file_name=f"Indicadores_{pais_ficha}.pdf",
             mime="application/pdf",
-            use_container_width=True,
-            type="primary",
         )
+
+        try:
+            import fitz
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            for i, page in enumerate(doc):
+                mat = fitz.Matrix(2, 2)
+                pix = page.get_pixmap(matrix=mat)
+                img_bytes = pix.tobytes("png")
+                st.image(img_bytes, use_container_width=True)
+            doc.close()
+        except Exception as e:
+            st.warning(f"No se pudo mostrar el PDF: {e}")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SECCIÓN CONSULTA DE COMERCIO

@@ -201,11 +201,12 @@ def init():
         "paso": 1,
         "nombre": "", "cargo": "", "email": "",
         "ncm_sel": [],
-        "matriz_interes": {},   # {(ncm, pais): {"exporta": bool, "importa": bool, "conoce": bool}}
+        "matriz_interes": {},
         "paises_sel": [],
         "pais_otro": "",
         "negs_sel": [],
         "neg_otro": "",
+        "supabase_id": None,
         "comentario": "",
         "guardado": False,
     }.items():
@@ -305,6 +306,7 @@ if st.session_state.seccion == "📋 Interés comercial":
                             .execute()
                         if prev.data:
                             r = prev.data[0]
+                            st.session_state.supabase_id   = r.get("id")
                             st.session_state.nombre        = r.get("nombre", "")
                             st.session_state.cargo         = r.get("cargo", "")
                             st.session_state.email         = r.get("email", "")
@@ -609,13 +611,37 @@ if st.session_state.seccion == "📋 Interés comercial":
 
             st.markdown("---")
             if st.session_state.guardado:
-                st.success("✅ Encuesta enviada correctamente. ¡Muchas gracias!")
+                st.success("✅ Respuesta guardada correctamente. ¡Muchas gracias!")
+                col1, col2, _ = st.columns([1, 1, 1])
+                with col1:
+                    if st.button("✏️ Modificar respuesta", use_container_width=True):
+                        st.session_state.guardado = False
+                        st.session_state.paso = 1
+                        st.rerun()
+                with col2:
+                    if st.button("➕ Nueva posición", use_container_width=True):
+                        # Mantiene camara y usuario, limpia datos de encuesta
+                        st.session_state.supabase_id    = None
+                        st.session_state.ncm_sel        = []
+                        st.session_state.paises_sel     = []
+                        st.session_state.pais_otro      = ""
+                        st.session_state.matriz_interes = {}
+                        st.session_state.negs_sel       = []
+                        st.session_state.neg_otro       = ""
+                        st.session_state.comentario     = ""
+                        st.session_state.guardado       = False
+                        st.session_state.paso           = 1
+                        ncms_camara = camaras_df[camaras_df["NbreCamara"] == camara]["PartidaNCM"].tolist()
+                        st.session_state.ncm_sel = ncms_camara
+                        for cod in ncms_camara:
+                            st.session_state[f"ck_{cod}"] = True
+                        st.rerun()
             else:
                 col1, col2, col3 = st.columns([1,1,1])
                 with col1:
                     if st.button("← Volver", use_container_width=True): st.session_state.paso = 3; st.rerun()
                 with col3:
-                    if st.button("✅ Fin de consulta", type="primary", use_container_width=True):
+                    if st.button("✅ Guardar", type="primary", use_container_width=True):
                         registro = {
                             "fecha_ingreso":      datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                             "camara":             camara,
@@ -632,8 +658,12 @@ if st.session_state.seccion == "📋 Interés comercial":
                             "comentario":         st.session_state.comentario,
                         }
                         try:
-                            supabase = get_supabase()
-                            supabase.table("respuestas_encuesta").insert(registro).execute()
+                            sb = get_supabase()
+                            if st.session_state.supabase_id:
+                                sb.table("respuestas_encuesta").update(registro).eq("id", st.session_state.supabase_id).execute()
+                            else:
+                                res = sb.table("respuestas_encuesta").insert(registro).execute()
+                                st.session_state.supabase_id = res.data[0]["id"]
                             st.session_state.guardado = True
                             st.rerun()
                         except Exception as e:

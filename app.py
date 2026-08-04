@@ -294,6 +294,33 @@ if st.session_state.seccion == "📋 Interés comercial":
                     st.session_state.ncm_sel = ncms_camara
                     for cod in ncms_camara:
                         st.session_state[f"ck_{cod}"] = True
+                    # Cargar respuesta previa si existe
+                    try:
+                        sb = get_supabase()
+                        prev = sb.table("respuestas_encuesta")\
+                            .select("*")\
+                            .eq("camara", camara_sel)\
+                            .order("id", desc=True)\
+                            .limit(1)\
+                            .execute()
+                        if prev.data:
+                            r = prev.data[0]
+                            st.session_state.nombre        = r.get("nombre", "")
+                            st.session_state.cargo         = r.get("cargo", "")
+                            st.session_state.email         = r.get("email", "")
+                            st.session_state.ncm_sel       = json.loads(r.get("ncm_seleccionados", "[]"))
+                            st.session_state.paises_sel    = json.loads(r.get("paises_interes", "[]"))
+                            st.session_state.pais_otro     = r.get("pais_otro", "")
+                            st.session_state.matriz_interes = json.loads(r.get("matriz_interes", "{}"))
+                            st.session_state.negs_sel      = json.loads(r.get("negociaciones", "[]"))
+                            st.session_state.neg_otro      = r.get("neg_otro", "")
+                            st.session_state.comentario    = r.get("comentario", "")
+                            st.session_state.guardado      = True
+                            st.session_state.paso          = 4
+                            for cod in st.session_state.ncm_sel:
+                                st.session_state[f"ck_{cod}"] = True
+                    except Exception:
+                        pass
                     st.rerun()
                 else:
                     st.error("Clave incorrecta. Verificá e intentá nuevamente.")

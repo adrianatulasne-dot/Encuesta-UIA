@@ -4,11 +4,18 @@ import plotly.graph_objects as go
 from pathlib import Path
 from datetime import datetime
 import json
+from supabase import create_client
 
 # ─── CONFIG ───────────────────────────────────────────────────────────────────
 DATA_DIR  = Path(__file__).parent / "data_parquet"
 FICHAS_DIR = Path(__file__).parent / "fichas"
 OUT_FILE  = Path(__file__).parent / "respuestas.csv"
+
+@st.cache_resource
+def get_supabase():
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+    return create_client(url, key)
 
 st.set_page_config(
     page_title="UIA – Internacionalización",
@@ -597,14 +604,13 @@ if st.session_state.seccion == "📋 Interés comercial":
                             "neg_otro":           st.session_state.neg_otro,
                             "comentario":         st.session_state.comentario,
                         }
-                        df_new = pd.DataFrame([registro])
-                        df_out = pd.concat([pd.read_csv(OUT_FILE), df_new], ignore_index=True) if OUT_FILE.exists() else df_new
                         try:
-                            df_out.to_csv(OUT_FILE, index=False, encoding="utf-8-sig")
+                            supabase = get_supabase()
+                            supabase.table("respuestas_encuesta").insert(registro).execute()
                             st.session_state.guardado = True
                             st.rerun()
-                        except PermissionError:
-                            st.error("❌ No se pudo guardar: el archivo **respuestas.csv** está abierto en Excel. Cerralo y hacé clic en **Enviar** nuevamente.")
+                        except Exception as e:
+                            st.error(f"❌ No se pudo guardar la respuesta: {e}")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SECCIÓN CONSULTA

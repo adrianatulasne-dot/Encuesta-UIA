@@ -217,10 +217,13 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     st.markdown("---")
 
-    opciones = ["📋 Interés comercial", "🔍 Consulta de comercio exterior", "📊 Indicadores macroeconómicos"]
-    idx = opciones.index(st.session_state.seccion) if st.session_state.seccion in opciones else 0
-    seccion = st.radio("", options=opciones, index=idx, label_visibility="collapsed")
-    st.session_state.seccion = seccion
+    if st.session_state.autenticado:
+        opciones = ["📋 Interés comercial", "🔍 Consulta de comercio exterior", "📊 Indicadores macroeconómicos"]
+        idx = opciones.index(st.session_state.seccion) if st.session_state.seccion in opciones else 0
+        seccion = st.radio("", options=opciones, index=idx, label_visibility="collapsed")
+        st.session_state.seccion = seccion
+    else:
+        st.markdown('<p style="color:#7a9acc; font-size:0.9rem;">Iniciá sesión para acceder a las secciones.</p>', unsafe_allow_html=True)
 
     if st.session_state.autenticado:
         st.markdown("---")
@@ -268,29 +271,17 @@ if st.session_state.seccion == "📋 Interés comercial":
         with col2:
             clave_input = st.text_input("Clave de acceso", type="password", placeholder="Ingresá tu clave")
 
-        col_i1, col_i2 = st.columns(2)
-        with col_i1:
-            nombre_l = st.text_input("Nombre completo *", placeholder="Ej: Juan Pérez")
-            cargo_l  = st.text_input("Cargo (opcional)")
-        with col_i2:
-            email_l  = st.text_input("Email (opcional)")
-
         st.markdown("")
         if st.button("Ingresar →", type="primary", use_container_width=True):
             if camara_sel == "— Seleccioná tu cámara —":
                 st.error("Seleccioná una cámara.")
             elif not clave_input:
                 st.error("Ingresá la clave de acceso.")
-            elif not nombre_l.strip():
-                st.error("Ingresá tu nombre para continuar.")
             else:
                 clave_ok = claves_df[claves_df["NbreCamara"] == camara_sel]["Pass"].values
                 if len(clave_ok) > 0 and clave_input == clave_ok[0]:
                     st.session_state.autenticado   = True
                     st.session_state.camara_actual = camara_sel
-                    st.session_state.nombre        = nombre_l.strip()
-                    st.session_state.cargo         = cargo_l.strip()
-                    st.session_state.email         = email_l.strip()
                     st.session_state.paso          = 1
                     ncms_camara = camaras_df[camaras_df["NbreCamara"] == camara_sel]["PartidaNCM"].tolist()
                     st.session_state.ncm_sel = ncms_camara
@@ -313,6 +304,18 @@ if st.session_state.seccion == "📋 Interés comercial":
 
         # ── PASO 1 — SUBPARTIDAS NCM ──────────────────────────────────────────
         elif paso == 1:
+            st.subheader("Datos de contacto")
+            col_i1, col_i2 = st.columns(2)
+            with col_i1:
+                nombre_v = st.text_input("Nombre completo *", value=st.session_state.nombre, placeholder="Ej: Juan Pérez", key="inp_nombre")
+                cargo_v  = st.text_input("Cargo (opcional)", value=st.session_state.cargo, key="inp_cargo")
+            with col_i2:
+                email_v  = st.text_input("Email (opcional)", value=st.session_state.email, key="inp_email")
+            st.session_state.nombre = nombre_v.strip()
+            st.session_state.cargo  = cargo_v.strip()
+            st.session_state.email  = email_v.strip()
+
+            st.markdown("---")
             st.subheader("Subpartidas arancelarias (NCM)")
             st.caption(f"Cámara: **{camara}** | {len(ncms_camara_todos)} subpartidas asignadas — marcá las que son de tu interés.")
 
@@ -347,7 +350,7 @@ if st.session_state.seccion == "📋 Interés comercial":
                 sub_df = ncm_info[ncm_info["Subsector"] == sub]
                 ncms_sub = sub_df["HSUSA"].tolist()
                 marcados_sub = sum(1 for n in ncms_sub if n in ncm_marcados)
-                with st.expander(f"📂 {sub}  —  {marcados_sub}/{len(ncms_sub)} seleccionadas", expanded=False):
+                with st.expander(f"📂 {sub}  —  {marcados_sub}/{len(ncms_sub)} seleccionadas", expanded=True):
                     for _, row in sub_df.iterrows():
                         cod  = row["HSUSA"]
                         desc = row["Descripcion Partida"]
@@ -361,7 +364,9 @@ if st.session_state.seccion == "📋 Interés comercial":
             st.markdown(f'<div class="card"><strong style="color:#90caf9">{len(st.session_state.ncm_sel)}</strong> subpartidas seleccionadas — esta selección refleja interés comercial y no impacta en el seguimiento de acuerdos o negociaciones.</div>', unsafe_allow_html=True)
 
             if st.button("Continuar →", type="primary", use_container_width=True):
-                if not st.session_state.ncm_sel:
+                if not st.session_state.nombre:
+                    st.error("Ingresá tu nombre para continuar.")
+                elif not st.session_state.ncm_sel:
                     st.error("Seleccioná al menos una subpartida NCM.")
                 else:
                     st.session_state.paso = 2; st.rerun()
@@ -696,12 +701,12 @@ else:
 
         labels = [
             f"🇦🇷 Arg exporta → {pais_elegido}",
-            f"🌍 {pais_elegido} exporta → Mundo",
             f"🇦🇷 Arg importa ← {pais_elegido}",
+            f"🌍 {pais_elegido} exporta → Mundo",
             f"🌍 {pais_elegido} importa ← Mundo",
         ]
-        valores = [total_expo_arg, total_expo_pais, total_impo_arg, total_impo_pais]
-        colores = ["#1565c0", "#42a5f5", "#2e7d32", "#66bb6a"]
+        valores = [total_expo_arg, total_impo_arg, total_expo_pais, total_impo_pais]
+        colores = ["#2e7d32", "#1565c0", "#66bb6a", "#42a5f5"]
 
         fig = go.Figure(go.Bar(
             x=labels, y=valores, marker_color=colores,

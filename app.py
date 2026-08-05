@@ -838,4 +838,4 @@ else:
         link = LINKS_ARANCELES.get(pais_elegido)
         if link:
             st.markdown("---")
-            st.markdown(f'Para ver aranceles: <a href="{link}" target="_blank">{link}</a>', unsafe_allow_html=True)
+            st.markdown(f'<span style="color:#ffffff;">Para ver aranceles: </span><a href="{link}" target="_blank" style="color:#90caf9;">{link}</a>', unsafe_allow_html=True)

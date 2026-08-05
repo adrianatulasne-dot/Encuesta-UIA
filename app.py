@@ -151,7 +151,7 @@ LINKS_ARANCELES = {
 }
 
 # ─── CARGA DE DATOS ───────────────────────────────────────────────────────────
-@st.cache_data
+@st.cache_data(ttl=300)
 def cargar_datos():
     ncm_df = pd.read_parquet(DATA_DIR / "ncm_sectores.parquet")
     ncm_df.columns = ncm_df.columns.str.strip()

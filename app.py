@@ -844,3 +844,4 @@ else:
         if link:
             st.markdown("---")
             st.markdown(f'<p style="color:#ffffff !important;">Para ver aranceles: <a href="{link}" target="_blank" style="color:#90caf9 !important; text-decoration:underline !important;">{link}</a></p>', unsafe_allow_html=True)
+        st.markdown('<p style="color:#7a9acc !important; font-size:0.82rem;">Fuente: Elaboración propia de la UIA en base a datos INDEC, COMTRADE y WITS. Para las exportaciones argentinas, a causa del secreto estadístico, se utilizaron datos de INDEC y estimaciones estadísticas propias.</p>', unsafe_allow_html=True)

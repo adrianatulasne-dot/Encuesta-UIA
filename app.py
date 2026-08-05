@@ -248,7 +248,7 @@ with st.sidebar:
     st.markdown("---")
 
     if st.session_state.autenticado:
-        opciones = ["📋 Interés comercial", "🔍 Consulta de comercio exterior", "📊 Indicadores macroeconómicos"]
+        opciones = ["📋 Interés comercial", "🔍 Consulta de comercio exterior y aranceles", "📊 Indicadores macroeconómicos"]
         idx = opciones.index(st.session_state.seccion) if st.session_state.seccion in opciones else 0
         seccion = st.radio("", options=opciones, index=idx, label_visibility="collapsed")
         st.session_state.seccion = seccion
@@ -362,6 +362,11 @@ if st.session_state.seccion == "📋 Interés comercial":
 
         # ── PASO 1 — SUBPARTIDAS NCM ──────────────────────────────────────────
         elif paso == 1:
+            st.markdown("""
+            <div style="background:#1565c0; border-radius:50px; padding:0.7rem 1.5rem; text-align:center; margin-bottom:1rem;">
+              <span style="color:#ffffff; font-size:0.95rem;">⚠️ Antes de completar el formulario, realizá la <strong>Consulta de Comercio Exterior y Aranceles</strong> e <strong>Indicadores Macroeconómicos</strong>.</span>
+            </div>
+            """, unsafe_allow_html=True)
             st.subheader("Datos de contacto")
             col_i1, col_i2 = st.columns(2)
             with col_i1:

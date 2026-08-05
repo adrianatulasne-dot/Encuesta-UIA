@@ -624,10 +624,10 @@ if st.session_state.seccion == "📋 Interés comercial":
                                 "Exporta": expo_v,
                                 "Importa": impo_v,
                                 "Conoce mercado": con_v,
-                                f"Arg → {pais} (KUSD)": round(expo_a, 1),
-                                f"Arg ← {pais} (KUSD)": round(impo_a, 1),
-                                f"{pais} → Mundo (KUSD)": round(expo_p, 1),
-                                f"{pais} ← Mundo (KUSD)": round(impo_p, 1),
+                                f"Arg → {pais} (Miles de USD)": round(expo_a, 1),
+                                f"Arg ← {pais} (Miles de USD)": round(impo_a, 1),
+                                f"{pais} → Mundo (Miles de USD)": round(expo_p, 1),
+                                f"{pais} ← Mundo (Miles de USD)": round(impo_p, 1),
                             })
 
                         if filas:
@@ -835,10 +835,10 @@ else:
             f"🌍 {pais_elegido} exporta → Mundo",
             f"🌍 {pais_elegido} importa ← Mundo",
         ])
-        with t1: tabla_detalle(expo_fil,      "partidaNCM", "fob",      "FOB (KUSD)", es_arg=True)
-        with t2: tabla_detalle(impo_fil,      "partidaNCM", "cif",      "CIF (KUSD)", es_arg=True)
-        with t3: tabla_detalle(expo_pais_fil, "cmdCode",    "fobvalue", "FOB (KUSD)", es_arg=False)
-        with t4: tabla_detalle(impo_pais_fil, "cmdCode",    "cifvalue", "CIF (KUSD)", es_arg=False)
+        with t1: tabla_detalle(expo_fil,      "partidaNCM", "fob",      "FOB (Miles de USD)", es_arg=True)
+        with t2: tabla_detalle(impo_fil,      "partidaNCM", "cif",      "CIF (Miles de USD)", es_arg=True)
+        with t3: tabla_detalle(expo_pais_fil, "cmdCode",    "fobvalue", "FOB (Miles de USD)", es_arg=False)
+        with t4: tabla_detalle(impo_pais_fil, "cmdCode",    "cifvalue", "CIF (Miles de USD)", es_arg=False)
 
         link = LINKS_ARANCELES.get(pais_elegido)
         if link:

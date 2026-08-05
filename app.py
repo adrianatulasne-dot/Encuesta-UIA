@@ -128,6 +128,28 @@ NOMBRE_MUNDO = {
 
 PASOS = ["Subpartidas NCM", "Países e interés comercial", "Acuerdos y negociaciones", "Resumen"]
 
+LINKS_ARANCELES = {
+    "Australia":              "https://wits.worldbank.org/tariff/trains/en/country/AUS/partner/ARG/product/all",
+    "Brunei":                 "https://wits.worldbank.org/tariff/trains/en/country/BRN/partner/ARG/product/All",
+    "Camboya":                "https://wits.worldbank.org/tariff/trains/en/country/KHM/partner/ARG/product/All",
+    "Canadá":                 "https://wits.worldbank.org/tariff/trains/en/country/CAN/partner/ARG/product/all",
+    "Chile":                  "https://wits.worldbank.org/tariff/trains/en/country/CHL/partner/ARG/product/All",
+    "Emiratos Árabes Unidos": "https://wits.worldbank.org/tariff/trains/en/country/ARE/partner/ARG/product/All",
+    "Filipinas":              "https://wits.worldbank.org/tariff/trains/en/country/PHL/partner/ARG/product/All",
+    "Indonesia":              "https://wits.worldbank.org/tariff/trains/en/country/IDN/partner/ARG/product/All",
+    "Japón":                  "https://wits.worldbank.org/tariff/trains/en/country/JPN/partner/ARG/product/All",
+    "Laos":                   "https://wits.worldbank.org/tariff/trains/en/country/LAO/partner/ARG/product/All",
+    "Malasia":                "https://wits.worldbank.org/tariff/trains/en/country/MYS/partner/ARG/product/All",
+    "México":                 "https://wits.worldbank.org/tariff/trains/en/country/MEX/partner/ARG/product/All",
+    "Myanmar":                "https://wits.worldbank.org/tariff/trains/en/country/MMR/partner/ARG/product/All",
+    "Nueva Zelanda":          "https://wits.worldbank.org/tariff/trains/en/country/NZL/partner/ARG/product/All",
+    "Perú":                   "https://wits.worldbank.org/tariff/trains/en/country/PER/partner/ARG/product/All",
+    "Reino Unido":            "https://wits.worldbank.org/tariff/trains/en/country/GBR/partner/ARG/product/All",
+    "Singapur":               "https://wits.worldbank.org/tariff/trains/en/country/SGP/partner/ARG/product/All",
+    "Tailandia":              "https://wits.worldbank.org/tariff/trains/en/country/THA/partner/ARG/product/All",
+    "Vietnam":                "https://wits.worldbank.org/tariff/trains/en/country/VNM/partner/ARG/product/All",
+}
+
 # ─── CARGA DE DATOS ───────────────────────────────────────────────────────────
 @st.cache_data
 def cargar_datos():
@@ -812,3 +834,8 @@ else:
         with t2: tabla_detalle(impo_fil,      "partidaNCM", "cif",      "CIF (KUSD)", es_arg=True)
         with t3: tabla_detalle(expo_pais_fil, "cmdCode",    "fobvalue", "FOB (KUSD)", es_arg=False)
         with t4: tabla_detalle(impo_pais_fil, "cmdCode",    "cifvalue", "CIF (KUSD)", es_arg=False)
+
+        link = LINKS_ARANCELES.get(pais_elegido)
+        if link:
+            st.markdown("---")
+            st.markdown(f'Para ver aranceles: <a href="{link}" target="_blank">{link}</a>', unsafe_allow_html=True)

@@ -411,8 +411,9 @@ if st.session_state.seccion == "📋 Interés comercial":
 
             # ── Buscador ──────────────────────────────────────────────────────
             busqueda = st.text_input("🔍 Buscar por NCM o descripción", placeholder="Ej: 4704 o 'papel'", key="ncm_busqueda")
-            if busqueda.strip():
-                term = busqueda.strip().lower()
+            term = busqueda.strip().lower()
+
+            if term:
                 ncm_filtrado = ncm_info[
                     ncm_info["HSUSA"].str.lower().str.contains(term) |
                     ncm_info["Descripcion Partida"].str.lower().str.contains(term)
@@ -429,23 +430,21 @@ if st.session_state.seccion == "📋 Interés comercial":
                         checked = st.checkbox(label, value=val, key=f"ck_{cod}")
                         if checked: ncm_marcados.add(cod)
                         else:       ncm_marcados.discard(cod)
-                st.markdown("---")
-
-            subsectores = sorted(ncm_info["Subsector"].dropna().unique())
-
-            for sub in subsectores:
-                sub_df = ncm_info[ncm_info["Subsector"] == sub]
-                ncms_sub = sub_df["HSUSA"].tolist()
-                marcados_sub = sum(1 for n in ncms_sub if n in ncm_marcados)
-                with st.expander(f"📂 {sub}  —  {marcados_sub}/{len(ncms_sub)} seleccionadas", expanded=True):
-                    for _, row in sub_df.iterrows():
-                        cod  = row["HSUSA"]
-                        desc = row["Descripcion Partida"]
-                        label = f"`{cod}` — {desc}" if desc else f"`{cod}`"
-                        val = st.session_state.get(f"ck_{cod}", cod in ncm_marcados)
-                        checked = st.checkbox(label, value=val, key=f"ck_{cod}")
-                        if checked: ncm_marcados.add(cod)
-                        else:       ncm_marcados.discard(cod)
+            else:
+                subsectores = sorted(ncm_info["Subsector"].dropna().unique())
+                for sub in subsectores:
+                    sub_df = ncm_info[ncm_info["Subsector"] == sub]
+                    ncms_sub = sub_df["HSUSA"].tolist()
+                    marcados_sub = sum(1 for n in ncms_sub if n in ncm_marcados)
+                    with st.expander(f"📂 {sub}  —  {marcados_sub}/{len(ncms_sub)} seleccionadas", expanded=True):
+                        for _, row in sub_df.iterrows():
+                            cod  = row["HSUSA"]
+                            desc = row["Descripcion Partida"]
+                            label = f"`{cod}` — {desc}" if desc else f"`{cod}`"
+                            val = st.session_state.get(f"ck_{cod}", cod in ncm_marcados)
+                            checked = st.checkbox(label, value=val, key=f"ck_{cod}")
+                            if checked: ncm_marcados.add(cod)
+                            else:       ncm_marcados.discard(cod)
 
             st.session_state.ncm_sel = list(ncm_marcados)
             st.markdown(f'<div class="card"><strong style="color:#90caf9">{len(st.session_state.ncm_sel)}</strong> subpartidas seleccionadas — esta selección refleja interés comercial y no impacta en el seguimiento de acuerdos o negociaciones.</div>', unsafe_allow_html=True)

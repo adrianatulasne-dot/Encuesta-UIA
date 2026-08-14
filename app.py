@@ -314,9 +314,9 @@ if st.session_state.seccion == "📋 Interés comercial":
                     st.session_state.camara_actual = camara_sel
                     st.session_state.paso          = 1
                     ncms_camara = camaras_df[camaras_df["NbreCamara"] == camara_sel]["PartidaNCM"].tolist()
-                    st.session_state.ncm_sel = ncms_camara
+                    st.session_state.ncm_sel = []
                     for cod in ncms_camara:
-                        st.session_state[f"ck_{cod}"] = True
+                        st.session_state[f"ck_{cod}"] = False
                     # Cargar respuesta previa si existe
                     try:
                         sb = get_supabase()
@@ -700,9 +700,9 @@ if st.session_state.seccion == "📋 Interés comercial":
                         st.session_state.guardado       = False
                         st.session_state.paso           = 1
                         ncms_camara = camaras_df[camaras_df["NbreCamara"] == camara]["PartidaNCM"].tolist()
-                        st.session_state.ncm_sel = ncms_camara
+                        st.session_state.ncm_sel = []
                         for cod in ncms_camara:
-                            st.session_state[f"ck_{cod}"] = True
+                            st.session_state[f"ck_{cod}"] = False
                         st.rerun()
             else:
                 col1, col2, col3 = st.columns([1,1,1])

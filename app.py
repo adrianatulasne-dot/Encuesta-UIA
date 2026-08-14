@@ -226,7 +226,7 @@ def init():
         "matriz_interes": {},
         "paises_sel": [],
         "pais_otro": "",
-        "negs_sel": [],
+        "negs_sel": {},
         "neg_otro": "",
         "supabase_id": None,
         "comentario": "",
@@ -336,7 +336,8 @@ if st.session_state.seccion == "📋 Interés comercial":
                             st.session_state.paises_sel    = json.loads(r.get("paises_interes", "[]"))
                             st.session_state.pais_otro     = r.get("pais_otro", "")
                             st.session_state.matriz_interes = json.loads(r.get("matriz_interes", "{}"))
-                            st.session_state.negs_sel      = json.loads(r.get("negociaciones", "[]"))
+                            negs_raw = json.loads(r.get("negociaciones", "{}"))
+                            st.session_state.negs_sel = negs_raw if isinstance(negs_raw, dict) else {}
                             st.session_state.neg_otro      = r.get("neg_otro", "")
                             st.session_state.comentario    = r.get("comentario", "")
                             st.session_state.guardado      = True
@@ -407,6 +408,29 @@ if st.session_state.seccion == "📋 Interés comercial":
                     st.rerun()
 
             ncm_marcados = set(st.session_state.ncm_sel)
+
+            # ── Buscador ──────────────────────────────────────────────────────
+            busqueda = st.text_input("🔍 Buscar por NCM o descripción", placeholder="Ej: 4704 o 'papel'", key="ncm_busqueda")
+            if busqueda.strip():
+                term = busqueda.strip().lower()
+                ncm_filtrado = ncm_info[
+                    ncm_info["HSUSA"].str.lower().str.contains(term) |
+                    ncm_info["Descripcion Partida"].str.lower().str.contains(term)
+                ]
+                if ncm_filtrado.empty:
+                    st.info("Sin resultados para esa búsqueda.")
+                else:
+                    st.caption(f"{len(ncm_filtrado)} resultado(s) encontrado(s):")
+                    for _, row in ncm_filtrado.iterrows():
+                        cod  = row["HSUSA"]
+                        desc = row["Descripcion Partida"]
+                        label = f"`{cod}` — {desc}" if desc else f"`{cod}`"
+                        val = st.session_state.get(f"ck_{cod}", cod in ncm_marcados)
+                        checked = st.checkbox(label, value=val, key=f"ck_{cod}")
+                        if checked: ncm_marcados.add(cod)
+                        else:       ncm_marcados.discard(cod)
+                st.markdown("---")
+
             subsectores = sorted(ncm_info["Subsector"].dropna().unique())
 
             for sub in subsectores:
@@ -520,18 +544,32 @@ if st.session_state.seccion == "📋 Interés comercial":
         # ── PASO 3 — ACUERDOS Y NEGOCIACIONES ────────────────────────────────
         elif paso == 3:
             st.subheader("Acuerdos y negociaciones")
-            st.caption("Seleccioná los acuerdos o negociaciones de interés para tu cámara.")
+            st.caption("Seleccioná los acuerdos o negociaciones de interés e indicá el nivel para cada uno.")
+
+            NIVELES = ["—", "Alto", "Medio", "Bajo"]
+            negs_dict = dict(st.session_state.negs_sel) if isinstance(st.session_state.negs_sel, dict) else {}
 
             st.markdown("#### ¿Le interesa el seguimiento de algún acuerdo o negociación en curso?")
-            st.caption("Tu selección queda registrada junto con el resto de la encuesta.")
-            negs_sel = set(st.session_state.negs_sel)
-            cols = st.columns(4)
-            for i, neg in enumerate(NEGOCIACIONES):
-                with cols[i % 4]:
-                    if st.checkbox(neg, value=neg in negs_sel, key=f"neg_{neg}"):
-                        negs_sel.add(neg)
-                    else:
-                        negs_sel.discard(neg)
+            st.caption("Para cada negociación seleccionada indicá el interés exportador y la sensibilidad importadora.")
+
+            # Encabezado de columnas
+            h0, h1, h2, h3 = st.columns([3, 1, 1, 1])
+            h1.markdown('<span style="color:#90caf9; font-size:0.85rem;">Seleccionar</span>', unsafe_allow_html=True)
+            h2.markdown('<span style="color:#90caf9; font-size:0.85rem;">A- Interés exportador</span>', unsafe_allow_html=True)
+            h3.markdown('<span style="color:#90caf9; font-size:0.85rem;">B- Sensibilidad importadora</span>', unsafe_allow_html=True)
+
+            negs_nuevo = {}
+            for neg in NEGOCIACIONES:
+                prev = negs_dict.get(neg, {})
+                r0, r1, r2, r3 = st.columns([3, 1, 1, 1])
+                r0.markdown(f'<span style="font-size:0.95rem;">{neg}</span>', unsafe_allow_html=True)
+                seleccionado = r1.checkbox("", value=bool(prev), key=f"neg_ck_{neg}", label_visibility="collapsed")
+                if seleccionado:
+                    exp_idx = NIVELES.index(prev.get("exportador", "—")) if prev.get("exportador") in NIVELES else 0
+                    imp_idx = NIVELES.index(prev.get("importadora", "—")) if prev.get("importadora") in NIVELES else 0
+                    exportador  = r2.selectbox("", options=NIVELES, index=exp_idx, key=f"neg_exp_{neg}", label_visibility="collapsed")
+                    importadora = r3.selectbox("", options=NIVELES, index=imp_idx, key=f"neg_imp_{neg}", label_visibility="collapsed")
+                    negs_nuevo[neg] = {"exportador": exportador, "importadora": importadora}
 
             st.markdown("")
             otro_neg_check = st.checkbox("Otro acuerdo / negociación", value=bool(st.session_state.neg_otro), key="neg_otro_check")
@@ -550,7 +588,7 @@ if st.session_state.seccion == "📋 Interés comercial":
                 if st.button("← Volver", use_container_width=True): st.session_state.paso = 2; st.rerun()
             with col2:
                 if st.button("Ver resumen →", type="primary", use_container_width=True):
-                    st.session_state.negs_sel   = list(negs_sel)
+                    st.session_state.negs_sel   = negs_nuevo
                     st.session_state.neg_otro   = neg_otro
                     st.session_state.comentario = comentario
                     st.session_state.paso = 4; st.rerun()
@@ -574,7 +612,11 @@ if st.session_state.seccion == "📋 Interés comercial":
                 paises_txt = ", ".join(sorted(st.session_state.paises_sel))
                 if st.session_state.pais_otro:
                     paises_txt += f", {st.session_state.pais_otro} (a incorporar)"
-                negs_txt = ", ".join(st.session_state.negs_sel) or "Ninguna"
+                negs_d = st.session_state.negs_sel if isinstance(st.session_state.negs_sel, dict) else {}
+                if negs_d:
+                    negs_txt = ", ".join([f"{k} (Expo: {v.get('exportador','—')} / Impo: {v.get('importadora','—')})" for k, v in negs_d.items()])
+                else:
+                    negs_txt = "Ninguna"
                 if st.session_state.neg_otro:
                     negs_txt += f", {st.session_state.neg_otro}"
                 com_h = f'<p><strong style="color:#90caf9">Comentario:</strong><br>{st.session_state.comentario}</p>' if st.session_state.comentario else ""
@@ -653,7 +695,7 @@ if st.session_state.seccion == "📋 Interés comercial":
                         st.session_state.paises_sel     = []
                         st.session_state.pais_otro      = ""
                         st.session_state.matriz_interes = {}
-                        st.session_state.negs_sel       = []
+                        st.session_state.negs_sel       = {}
                         st.session_state.neg_otro       = ""
                         st.session_state.comentario     = ""
                         st.session_state.guardado       = False

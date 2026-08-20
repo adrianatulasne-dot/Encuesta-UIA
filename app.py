@@ -817,8 +817,8 @@ else:
 
         expo_pais_fil = expo_mundo[(expo_mundo["pais"] == nombre_mundo) & expo_mundo["cmdCode"].isin(ncm_set)]
         impo_pais_fil = impo_mundo[(impo_mundo["pais"] == nombre_mundo) & impo_mundo["cmdCode"].isin(ncm_set)]
-        total_expo_pais = expo_pais_fil["fobvalue"].sum() / 1_000   # miles USD → millones USD
-        total_impo_pais = impo_pais_fil["cifvalue"].sum() / 1_000   # miles USD → millones USD
+        total_expo_pais = expo_pais_fil["fobvalue"].sum()
+        total_impo_pais = impo_pais_fil["cifvalue"].sum()
         period_pais = expo_pais_fil["period"].iloc[0] if len(expo_pais_fil) else "N/D"
 
         def fmt_mill(val):
@@ -871,7 +871,7 @@ else:
             total = df2[label_val].sum()
             df2["% del total"] = (df2[label_val] / total * 100).round(1).astype(str) + "%"
             if es_arg: df2[label_val] = (df2[label_val] / 1_000_000).round(2).apply(lambda x: f"{x:,.2f}")
-            else:      df2[label_val] = (df2[label_val] / 1_000).round(2).apply(lambda x: f"{x:,.2f}")
+            else:      df2[label_val] = df2[label_val].round(2).apply(lambda x: f"{x:,.2f}")
             st.dataframe(df2[["NCM","Descripción","Subsector",label_val,"% del total"]],
                          use_container_width=True, hide_index=True, height=350)
 

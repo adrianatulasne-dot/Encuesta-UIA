@@ -124,6 +124,8 @@ NOMBRE_MUNDO = {
     "Reino Unido": "Reino Unido", "Singapur": "Singapur", "Vietnam": "Vietnam",
     "Camboya": "Camboya", "Filipinas": "Filipinas", "Laos": "Laos",
     "Myanmar": "Myanmar", "Tailandia": "Tailandia",
+    "Emiratos Árabes Unidos": "Emiratos Arabes Unidos",
+    "Indonesia": "Indonesia",
 }
 
 PASOS = ["Subpartidas NCM", "Países e interés comercial", "Acuerdos y negociaciones", "Resumen"]
@@ -805,8 +807,8 @@ else:
     if pais_elegido == "— Elegí un país —":
         st.info("👆 Seleccioná un país para ver los datos de comercio.")
     else:
-        codigos_pais  = PAIS_CODINDEC[pais_elegido]
-        nombre_mundo  = NOMBRE_MUNDO[pais_elegido]
+        codigos_pais  = PAIS_CODINDEC.get(pais_elegido, [])
+        nombre_mundo  = NOMBRE_MUNDO.get(pais_elegido, pais_elegido)
 
         expo_fil = expo_arg[expo_arg["pais"].isin(codigos_pais) & expo_arg["ncm6"].isin(ncm_set)].copy()
         impo_fil = impo_arg[impo_arg["pais"].isin(codigos_pais) & impo_arg["ncm6"].isin(ncm_set)].copy()

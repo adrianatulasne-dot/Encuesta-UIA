@@ -812,25 +812,28 @@ else:
 
         expo_fil = expo_arg[expo_arg["pais"].isin(codigos_pais) & expo_arg["ncm6"].isin(ncm_set)].copy()
         impo_fil = impo_arg[impo_arg["pais"].isin(codigos_pais) & impo_arg["ncm6"].isin(ncm_set)].copy()
-        total_expo_arg = expo_fil["fob"].sum() / 1000
-        total_impo_arg = impo_fil["cif"].sum() / 1000
+        total_expo_arg = expo_fil["fob"].sum() / 1_000_000      # USD → millones USD
+        total_impo_arg = impo_fil["cif"].sum() / 1_000_000      # USD → millones USD
 
         expo_pais_fil = expo_mundo[(expo_mundo["pais"] == nombre_mundo) & expo_mundo["cmdCode"].isin(ncm_set)]
         impo_pais_fil = impo_mundo[(impo_mundo["pais"] == nombre_mundo) & impo_mundo["cmdCode"].isin(ncm_set)]
-        total_expo_pais = expo_pais_fil["fobvalue"].sum()
-        total_impo_pais = impo_pais_fil["cifvalue"].sum()
+        total_expo_pais = expo_pais_fil["fobvalue"].sum() / 1_000   # miles USD → millones USD
+        total_impo_pais = impo_pais_fil["cifvalue"].sum() / 1_000   # miles USD → millones USD
         period_pais = expo_pais_fil["period"].iloc[0] if len(expo_pais_fil) else "N/D"
+
+        def fmt_mill(val):
+            return f"{val:,.1f} M USD"
 
         sector_label = subsector_c if subsector_c != "— Todos los subsectores —" \
                        else sector_c if sector_c != "— Todos los sectores —" else "todos los sectores"
         st.markdown(f"### Argentina ↔ {pais_elegido}")
-        st.caption(f"Filtro: **{sector_label}** | **{len(ncm_set):,}** subpartidas NCM | Año Argentina: 2025 | Año {pais_elegido}: {period_pais} | Valores en miles de USD")
+        st.caption(f"Filtro: **{sector_label}** | **{len(ncm_set):,}** subpartidas NCM | Año Argentina: 2025 | Año {pais_elegido}: {period_pais} | Valores en millones de USD")
 
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric(f"🇦🇷 Arg exporta → {pais_elegido}", fmt_usd(total_expo_arg))
-        m2.metric(f"🇦🇷 Arg importa ← {pais_elegido}", fmt_usd(total_impo_arg))
-        m3.metric(f"🌍 {pais_elegido} exporta → Mundo", fmt_usd(total_expo_pais))
-        m4.metric(f"🌍 {pais_elegido} importa ← Mundo", fmt_usd(total_impo_pais))
+        m1.metric(f"🇦🇷 Arg exporta → {pais_elegido}", fmt_mill(total_expo_arg))
+        m2.metric(f"🇦🇷 Arg importa ← {pais_elegido}", fmt_mill(total_impo_arg))
+        m3.metric(f"🌍 {pais_elegido} exporta → Mundo", fmt_mill(total_expo_pais))
+        m4.metric(f"🌍 {pais_elegido} importa ← Mundo", fmt_mill(total_impo_pais))
 
         labels = [
             f"🇦🇷 Arg exporta → {pais_elegido}",
@@ -843,12 +846,12 @@ else:
 
         fig = go.Figure(go.Bar(
             x=labels, y=valores, marker_color=colores,
-            text=[fmt_usd(v) for v in valores],
+            text=[fmt_mill(v) for v in valores],
             textposition="outside", textfont=dict(color="white", size=13),
         ))
         fig.update_layout(
             paper_bgcolor="#0d2040", plot_bgcolor="#0d2040", font=dict(color="white"),
-            yaxis=dict(title="Miles USD", gridcolor="#1a3a6b", color="white"),
+            yaxis=dict(title="Millones de USD", gridcolor="#1a3a6b", color="white"),
             xaxis=dict(color="white", tickfont=dict(size=11)),
             showlegend=False, height=430, margin=dict(t=60, b=20),
         )
@@ -867,8 +870,8 @@ else:
             df2 = df2.sort_values(label_val, ascending=False)
             total = df2[label_val].sum()
             df2["% del total"] = (df2[label_val] / total * 100).round(1).astype(str) + "%"
-            if es_arg: df2[label_val] = (df2[label_val] / 1000).round(1).apply(lambda x: f"{x:,.1f}")
-            else:      df2[label_val] = df2[label_val].apply(lambda x: f"{x:,.1f}")
+            if es_arg: df2[label_val] = (df2[label_val] / 1_000_000).round(2).apply(lambda x: f"{x:,.2f}")
+            else:      df2[label_val] = (df2[label_val] / 1_000).round(2).apply(lambda x: f"{x:,.2f}")
             st.dataframe(df2[["NCM","Descripción","Subsector",label_val,"% del total"]],
                          use_container_width=True, hide_index=True, height=350)
 
@@ -878,10 +881,10 @@ else:
             f"🌍 {pais_elegido} exporta → Mundo",
             f"🌍 {pais_elegido} importa ← Mundo",
         ])
-        with t1: tabla_detalle(expo_fil,      "partidaNCM", "fob",      "FOB (Miles de USD)", es_arg=True)
-        with t2: tabla_detalle(impo_fil,      "partidaNCM", "cif",      "CIF (Miles de USD)", es_arg=True)
-        with t3: tabla_detalle(expo_pais_fil, "cmdCode",    "fobvalue", "FOB (Miles de USD)", es_arg=False)
-        with t4: tabla_detalle(impo_pais_fil, "cmdCode",    "cifvalue", "CIF (Miles de USD)", es_arg=False)
+        with t1: tabla_detalle(expo_fil,      "partidaNCM", "fob",      "FOB (M USD)", es_arg=True)
+        with t2: tabla_detalle(impo_fil,      "partidaNCM", "cif",      "CIF (M USD)", es_arg=True)
+        with t3: tabla_detalle(expo_pais_fil, "cmdCode",    "fobvalue", "FOB (M USD)", es_arg=False)
+        with t4: tabla_detalle(impo_pais_fil, "cmdCode",    "cifvalue", "CIF (M USD)", es_arg=False)
 
         link = LINKS_ARANCELES.get(pais_elegido)
         if link:

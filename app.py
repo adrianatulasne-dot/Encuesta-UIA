@@ -108,7 +108,7 @@ PAISES_CPTPP = [
 ]
 TODOS_PAISES = PAISES_CPTPP + [
     "Camboya", "Emiratos Árabes Unidos", "Filipinas",
-    "Indonesia", "Laos", "Myanmar", "Tailandia",
+    "India", "Indonesia", "Korea del Sur", "Laos", "Myanmar", "Tailandia",
 ]
 
 NEGOCIACIONES = [
@@ -126,6 +126,8 @@ NOMBRE_MUNDO = {
     "Myanmar": "Myanmar", "Tailandia": "Tailandia",
     "Emiratos Árabes Unidos": "Emiratos Arabes Unidos",
     "Indonesia": "Indonesia",
+    "India": "India",
+    "Korea del Sur": "Korea del Sur",
 }
 
 PASOS = ["Subpartidas NCM", "Países e interés comercial", "Acuerdos y negociaciones", "Resumen"]
@@ -150,6 +152,8 @@ LINKS_ARANCELES = {
     "Singapur":               "https://wits.worldbank.org/tariff/trains/en/country/SGP/partner/ARG/product/All",
     "Tailandia":              "https://wits.worldbank.org/tariff/trains/en/country/THA/partner/ARG/product/All",
     "Vietnam":                "https://wits.worldbank.org/tariff/trains/en/country/VNM/partner/ARG/product/All",
+    "India":                  "https://wits.worldbank.org/tariff/trains/en/country/IND/partner/ARG/product/All",
+    "Korea del Sur":          "https://wits.worldbank.org/tariff/trains/en/country/KOR/partner/ARG/product/All",
 }
 
 # ─── CARGA DE DATOS ───────────────────────────────────────────────────────────
@@ -199,6 +203,7 @@ def cargar_datos():
         "Emiratos Árabes Unidos": ["448"], "Indonesia": ["316"],
         "Camboya": ["306"], "Filipinas": ["312"], "Laos": ["324"],
         "Myanmar": ["304"], "Tailandia": ["335"],
+        "India": ["315"], "Korea del Sur": ["309"],
     }
 
     return ncm_df, camaras_df, claves_df, expo_arg, impo_arg, expo_mundo, impo_mundo, paisindec, pais_codindec

@@ -238,6 +238,7 @@ def init():
         "supabase_id": None,
         "comentario": "",
         "guardado": False,
+        "barreras": {},
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -347,6 +348,8 @@ if st.session_state.seccion == "📋 Interés comercial":
                             st.session_state.negs_sel = negs_raw if isinstance(negs_raw, dict) else {}
                             st.session_state.neg_otro      = r.get("neg_otro", "")
                             st.session_state.comentario    = r.get("comentario", "")
+                            barreras_raw = r.get("barreras", "{}")
+                            st.session_state.barreras = json.loads(barreras_raw) if barreras_raw else {}
                             st.session_state.guardado      = True
                             st.session_state.paso          = 4
                             for cod in st.session_state.ncm_sel:
@@ -593,10 +596,163 @@ if st.session_state.seccion == "📋 Interés comercial":
             with col1:
                 if st.button("← Volver", use_container_width=True): st.session_state.paso = 2; st.rerun()
             with col2:
-                if st.button("Ver resumen →", type="primary", use_container_width=True):
+                if st.button("Siguiente →", type="primary", use_container_width=True):
                     st.session_state.negs_sel   = negs_nuevo
                     st.session_state.neg_otro   = neg_otro
                     st.session_state.comentario = comentario
+                    st.session_state.paso = 5; st.rerun()
+
+        # ── PASO 5 — BARRERAS AL COMERCIO ────────────────────────────────────
+        elif paso == 5:
+            st.subheader("Paso 5 — Barreras al comercio (opcional)")
+            st.caption("Esta sección relevará información sobre obstáculos regulatorios y otras disciplinas comerciales.")
+
+            b = st.session_state.barreras
+
+            # ── REGLAS DE ORIGEN ──
+            st.markdown("#### 📋 Reglas de Origen")
+            origen_info = st.text_area(
+                "Información relevante sobre Reglas de Origen (NCMs, acuerdos, requisitos, etc.)",
+                value=b.get("origen_info", ""), height=80,
+                placeholder="Ingresá comentarios sobre reglas de origen aplicables a tus productos...",
+                key="b_origen_info"
+            )
+            origen_reos_mercosur = st.radio(
+                "¿Pueden adoptarse los mismos Requisitos Específicos de Origen (REOs) negociados en Mercosur (ACE-18)?",
+                options=["—", "Sí", "No"], index=["—","Sí","No"].index(b.get("origen_reos_mercosur","—")),
+                horizontal=True, key="b_origen_mercosur"
+            )
+            origen_reos_ue = st.radio(
+                "¿Pueden adoptarse los mismos REOs negociados en el acuerdo Mercosur-Unión Europea?",
+                options=["—", "Sí", "No"], index=["—","Sí","No"].index(b.get("origen_reos_ue","—")),
+                horizontal=True, key="b_origen_ue"
+            )
+
+            st.markdown("---")
+
+            # ── TBT ──
+            st.markdown("#### 🔧 Barreras Técnicas al Comercio (TBT)")
+            TBT_OBSTACULOS = [
+                "Falta de transparencia en requisitos técnicos o procedimientos de evaluación de la conformidad",
+                "Dificultades de participación en el proceso de elaboración de reglamentos",
+                "Reglamentos técnicos divergentes de normas internacionales relevantes (ISO/IEC, etc.)",
+                "Requisitos técnicos excesivamente restrictivos o prescriptivos",
+                "No reconocimiento de equivalencia de reglamentos técnicos",
+                "Duplicidad de ensayos, inspecciones o certificaciones",
+                "Procedimientos de evaluación de la conformidad más onerosos de lo necesario",
+                "Demoras o incertidumbre en procesos de registro/aprobación (plazos indeterminados)",
+                "No reconocimiento de resultados de procedimientos de evaluación de la conformidad",
+                "Exigencias impuestas por agentes privados (importadores, distribuidores, retail)",
+            ]
+            tbt_tiene = st.radio(
+                "¿Identificás cuestiones regulatorias en TBT que impacten negativamente la negociación?",
+                options=["—", "Sí", "No"], index=["—","Sí","No"].index(b.get("tbt_tiene","—")),
+                horizontal=True, key="b_tbt_tiene"
+            )
+            tbt_obstaculos = []
+            tbt_otro = ""
+            tbt_caso = ""
+            if tbt_tiene == "Sí":
+                st.markdown("**Tipos de divergencias/obstáculos identificados** (marcá todos los que apliquen):")
+                prev_obs = b.get("tbt_obstaculos", [])
+                for obs in TBT_OBSTACULOS:
+                    if st.checkbox(obs, value=obs in prev_obs, key=f"tbt_{obs[:30]}"):
+                        tbt_obstaculos.append(obs)
+                tbt_otro = st.text_input("Otros (especificá)", value=b.get("tbt_otro",""), key="b_tbt_otro")
+                tbt_caso = st.text_area(
+                    "Describí un caso concreto (sector, producto con NCM, normativa específica, estimación de impacto):",
+                    value=b.get("tbt_caso",""), height=100, key="b_tbt_caso"
+                )
+
+            st.markdown("---")
+
+            # ── SPS ──
+            st.markdown("#### 🌱 Medidas Sanitarias y Fitosanitarias (SPS)")
+            SPS_OBSTACULOS = [
+                "Falta de transparencia en requisitos sanitarios/fitosanitarios o procedimientos de certificación/inspección",
+                "Dificultades de participación en el proceso de elaboración de medidas SPS",
+                "Divergencia con normas internacionales relevantes (Codex, WOAH, IPPC)",
+                "No reconocimiento de regionalización/zonas libres o de compartimentación",
+                "No reconocimiento de equivalencia de medidas o sistemas oficiales",
+                "Exigencias de certificación/inspección duplicadas",
+                "Exigencias de certificación/inspección más onerosas de lo necesario",
+                "Metodologías de muestreo/ensayo sin base científica adecuada",
+                "Demoras o incertidumbre en procesos de autorización/aprobación (plazos indeterminados)",
+                "No aceptación de certificados electrónicos cuando están disponibles",
+                "Exigencias impuestas por agentes privados (importadores, distribuidores, retail)",
+            ]
+            sps_tiene = st.radio(
+                "¿Identificás medidas SPS que impacten negativamente la negociación?",
+                options=["—", "Sí", "No"], index=["—","Sí","No"].index(b.get("sps_tiene","—")),
+                horizontal=True, key="b_sps_tiene"
+            )
+            sps_obstaculos = []
+            sps_otro = ""
+            sps_caso = ""
+            if sps_tiene == "Sí":
+                st.markdown("**Tipos de medidas/obstáculos SPS** (marcá todos los que apliquen):")
+                prev_sps = b.get("sps_obstaculos", [])
+                for obs in SPS_OBSTACULOS:
+                    if st.checkbox(obs, value=obs in prev_sps, key=f"sps_{obs[:30]}"):
+                        sps_obstaculos.append(obs)
+                sps_otro = st.text_input("Otros (especificá)", value=b.get("sps_otro",""), key="b_sps_otro")
+                sps_caso = st.text_area(
+                    "Describí un caso concreto (sector, producto con NCM, normativa específica, estimación de impacto):",
+                    value=b.get("sps_caso",""), height=100, key="b_sps_caso"
+                )
+
+            st.markdown("---")
+
+            # ── OTRAS DISCIPLINAS ──
+            st.markdown("#### 📌 Otras Disciplinas Comerciales")
+            DISCIPLINAS = [
+                "Comercio de Servicios",
+                "Inversiones",
+                "Propiedad Intelectual",
+                "Compras Gubernamentales",
+                "Defensa Comercial",
+                "Salvaguardas bilaterales",
+                "Facilitación de Comercio y Cooperación Aduanera",
+                "Buenas Prácticas Regulatorias",
+                "Defensa de la Competencia",
+                "Solución de Controversias",
+                "Micro y Pequeñas Empresas",
+                "Comercio y Desarrollo Sostenible",
+            ]
+            st.markdown("¿Identificás disciplinas comerciales relevantes para la negociación? (marcá todas las que apliquen):")
+            prev_disc = b.get("disciplinas", [])
+            disciplinas_sel = []
+            for disc in DISCIPLINAS:
+                if st.checkbox(disc, value=disc in prev_disc, key=f"disc_{disc[:30]}"):
+                    disciplinas_sel.append(disc)
+            disciplinas_comentario = st.text_area(
+                "Si marcaste alguna disciplina, describí el interés ofensivo o la preocupación defensiva:",
+                value=b.get("disciplinas_comentario",""), height=100, key="b_disc_comentario"
+            )
+
+            st.markdown("---")
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("← Volver", use_container_width=True):
+                    st.session_state.paso = 3; st.rerun()
+            with col2:
+                if st.button("Ver resumen →", type="primary", use_container_width=True):
+                    st.session_state.barreras = {
+                        "origen_info":             origen_info,
+                        "origen_reos_mercosur":    origen_reos_mercosur,
+                        "origen_reos_ue":          origen_reos_ue,
+                        "tbt_tiene":               tbt_tiene,
+                        "tbt_obstaculos":          tbt_obstaculos,
+                        "tbt_otro":                tbt_otro,
+                        "tbt_caso":                tbt_caso,
+                        "sps_tiene":               sps_tiene,
+                        "sps_obstaculos":          sps_obstaculos,
+                        "sps_otro":                sps_otro,
+                        "sps_caso":                sps_caso,
+                        "disciplinas":             disciplinas_sel,
+                        "disciplinas_comentario":  disciplinas_comentario,
+                    }
                     st.session_state.paso = 4; st.rerun()
 
         # ── PASO 4 — RESUMEN ──────────────────────────────────────────────────
@@ -704,6 +860,7 @@ if st.session_state.seccion == "📋 Interés comercial":
                         st.session_state.negs_sel       = {}
                         st.session_state.neg_otro       = ""
                         st.session_state.comentario     = ""
+                        st.session_state.barreras       = {}
                         st.session_state.guardado       = False
                         st.session_state.paso           = 1
                         ncms_camara = camaras_df[camaras_df["NbreCamara"] == camara]["PartidaNCM"].tolist()
@@ -714,7 +871,7 @@ if st.session_state.seccion == "📋 Interés comercial":
             else:
                 col1, col2, col3 = st.columns([1,1,1])
                 with col1:
-                    if st.button("← Volver", use_container_width=True): st.session_state.paso = 3; st.rerun()
+                    if st.button("← Volver", use_container_width=True): st.session_state.paso = 5; st.rerun()
                 with col3:
                     if st.button("✅ Guardar", type="primary", use_container_width=True):
                         registro = {
@@ -731,6 +888,7 @@ if st.session_state.seccion == "📋 Interés comercial":
                             "negociaciones":      json.dumps(st.session_state.negs_sel),
                             "neg_otro":           st.session_state.neg_otro,
                             "comentario":         st.session_state.comentario,
+                            "barreras":           json.dumps(st.session_state.barreras),
                         }
                         try:
                             sb = get_supabase()

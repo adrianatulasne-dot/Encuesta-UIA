@@ -655,8 +655,8 @@ if st.session_state.seccion == "📋 Interés comercial":
             if tbt_tiene == "Sí":
                 st.markdown("**Tipos de divergencias/obstáculos identificados** (marcá todos los que apliquen):")
                 prev_obs = b.get("tbt_obstaculos", [])
-                for obs in TBT_OBSTACULOS:
-                    if st.checkbox(obs, value=obs in prev_obs, key=f"tbt_{obs[:30]}"):
+                for i, obs in enumerate(TBT_OBSTACULOS):
+                    if st.checkbox(obs, value=obs in prev_obs, key=f"tbt_{i}"):
                         tbt_obstaculos.append(obs)
                 tbt_otro = st.text_input("Otros (especificá)", value=b.get("tbt_otro",""), key="b_tbt_otro")
                 tbt_caso = st.text_area(
@@ -692,8 +692,8 @@ if st.session_state.seccion == "📋 Interés comercial":
             if sps_tiene == "Sí":
                 st.markdown("**Tipos de medidas/obstáculos SPS** (marcá todos los que apliquen):")
                 prev_sps = b.get("sps_obstaculos", [])
-                for obs in SPS_OBSTACULOS:
-                    if st.checkbox(obs, value=obs in prev_sps, key=f"sps_{obs[:30]}"):
+                for i, obs in enumerate(SPS_OBSTACULOS):
+                    if st.checkbox(obs, value=obs in prev_sps, key=f"sps_{i}"):
                         sps_obstaculos.append(obs)
                 sps_otro = st.text_input("Otros (especificá)", value=b.get("sps_otro",""), key="b_sps_otro")
                 sps_caso = st.text_area(
@@ -722,8 +722,8 @@ if st.session_state.seccion == "📋 Interés comercial":
             st.markdown("¿Identificás disciplinas comerciales relevantes para la negociación? (marcá todas las que apliquen):")
             prev_disc = b.get("disciplinas", [])
             disciplinas_sel = []
-            for disc in DISCIPLINAS:
-                if st.checkbox(disc, value=disc in prev_disc, key=f"disc_{disc[:30]}"):
+            for i, disc in enumerate(DISCIPLINAS):
+                if st.checkbox(disc, value=disc in prev_disc, key=f"disc_{i}"):
                     disciplinas_sel.append(disc)
             disciplinas_comentario = st.text_area(
                 "Si marcaste alguna disciplina, describí el interés ofensivo o la preocupación defensiva:",

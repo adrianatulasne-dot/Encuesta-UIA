@@ -1087,7 +1087,6 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
     if st.session_state.ac_guardado and ac_paso == 4:
         st.success("✅ Información guardada correctamente.")
         if st.button("➕ Nueva carga de acuerdos", use_container_width=True):
-        if st.button("➕ Nueva carga de acuerdos", use_container_width=True):
             st.session_state.ac_ncm_sel = []
             st.session_state.ac_sel     = []
             st.session_state.ac_matriz  = {}

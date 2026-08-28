@@ -289,6 +289,41 @@ st.markdown('</div>', unsafe_allow_html=True)
 st.markdown('<p style="text-align:center; color:#7a9acc; margin-top:0.2rem;">Departamento de Comercio y Negociaciones Internacionales</p>', unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# BARRERA GLOBAL: LOGIN
+# ═══════════════════════════════════════════════════════════════════════════════
+if not st.session_state.autenticado:
+    st.subheader("Acceso")
+    st.caption("Seleccioná tu cámara e ingresá la clave para continuar.")
+    lista_camaras = sorted(claves_df["NbreCamara"].tolist())
+    col1, col2 = st.columns(2)
+    with col1:
+        camara_sel = st.selectbox("Cámara", options=["— Seleccioná tu cámara —"] + lista_camaras)
+    with col2:
+        clave_input = st.text_input("Clave de acceso", type="password", placeholder="Ingresá tu clave")
+    st.markdown("")
+    if st.button("Ingresar →", type="primary", use_container_width=True):
+        if camara_sel == "— Seleccioná tu cámara —":
+            st.error("Seleccioná una cámara.")
+        elif not clave_input:
+            st.error("Ingresá la clave de acceso.")
+        else:
+            clave_ok = claves_df[claves_df["NbreCamara"] == camara_sel]["Pass"].values
+            if len(clave_ok) > 0 and clave_input == clave_ok[0]:
+                for k in list(st.session_state.keys()):
+                    del st.session_state[k]
+                init()
+                st.session_state.autenticado   = True
+                st.session_state.camara_actual = camara_sel
+                st.session_state.contacto_ok   = False
+                ncms_camara = camaras_df[camaras_df["NbreCamara"] == camara_sel]["PartidaNCM"].tolist()
+                for cod in ncms_camara:
+                    st.session_state[f"ck_{cod}"] = False
+                st.rerun()
+            else:
+                st.error("Clave incorrecta. Verificá e intentá nuevamente.")
+    st.stop()
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # PANTALLA DE CONTACTO (post-login, pre-menú)
 # ═══════════════════════════════════════════════════════════════════════════════
 if st.session_state.autenticado and not st.session_state.contacto_ok:
@@ -344,135 +379,81 @@ if st.session_state.seccion == "📋 Interés comercial":
         st.markdown(html, unsafe_allow_html=True)
     st.markdown('<hr>', unsafe_allow_html=True)
 
-    # ── LOGIN ─────────────────────────────────────────────────────────────────
-    if not st.session_state.autenticado:
-        st.subheader("Acceso")
-        st.caption("Seleccioná tu cámara e ingresá la clave para continuar.")
+    # ── PASOS ─────────────────────────────────────────────────────────────────
+    camara = st.session_state.camara_actual
+    ncms_camara_todos = camaras_df[camaras_df["NbreCamara"] == camara]["PartidaNCM"].tolist()
 
-        lista_camaras = sorted(claves_df["NbreCamara"].tolist())
-        col1, col2 = st.columns(2)
-        with col1:
-            camara_sel = st.selectbox("Cámara", options=["— Seleccioná tu cámara —"] + lista_camaras)
-        with col2:
-            clave_input = st.text_input("Clave de acceso", type="password", placeholder="Ingresá tu clave")
+    # Si la cámara no tiene NCMs asignadas, saltar directamente a países
+    if not ncms_camara_todos and paso == 1:
+        st.info(f"La cámara **{camara}** no tiene subpartidas arancelarias asignadas. Podés continuar directamente a la selección de países.")
+        if st.button("Continuar →", type="primary"):
+            st.session_state.paso = 2; st.rerun()
 
-        st.markdown("")
-        if st.button("Ingresar →", type="primary", use_container_width=True):
-            if camara_sel == "— Seleccioná tu cámara —":
-                st.error("Seleccioná una cámara.")
-            elif not clave_input:
-                st.error("Ingresá la clave de acceso.")
+    # ── PASO 1 — SUBPARTIDAS NCM ──────────────────────────────────────────
+    elif paso == 1:
+        st.markdown("""
+        <div style="background:#1565c0; border-radius:50px; padding:0.7rem 1.5rem; text-align:center; margin-bottom:1rem;">
+          <span style="color:#ffffff; font-size:0.95rem;">⚠️ Antes de completar el formulario, realizá la <strong>Consulta de Comercio Exterior y Aranceles</strong> e <strong>Indicadores Macroeconómicos</strong>.</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.subheader("Subpartidas arancelarias (NCM)")
+        st.caption(f"Cámara: **{camara}** | {len(ncms_camara_todos)} subpartidas asignadas — marcá las que son de tu interés.")
+
+        ncm_set_camara = set(ncms_camara_todos)
+        ncm_info = (
+            ncm_df[ncm_df["HSUSA"].isin(ncm_set_camara)]
+            [["HSUSA","Subsector","Descripcion Partida"]]
+            .drop_duplicates("HSUSA")
+        )
+        sin_info = ncm_set_camara - set(ncm_info["HSUSA"])
+        if sin_info:
+            extra = pd.DataFrame({"HSUSA": list(sin_info), "Subsector": "Sin clasificar", "Descripcion Partida": ""})
+            ncm_info = pd.concat([ncm_info, extra], ignore_index=True)
+        ncm_info = ncm_info.sort_values("HSUSA")
+
+        col_a, col_b, _ = st.columns([1,1,4])
+        with col_a:
+            if st.button("✅ Marcar todas"):
+                st.session_state.ncm_sel = ncms_camara_todos
+                for cod in ncms_camara_todos: st.session_state[f"ck_{cod}"] = True
+                st.rerun()
+        with col_b:
+            if st.button("☐ Desmarcar todas"):
+                st.session_state.ncm_sel = []
+                for cod in ncms_camara_todos: st.session_state[f"ck_{cod}"] = False
+                st.rerun()
+
+        ncm_marcados = set(st.session_state.ncm_sel)
+
+        # ── Buscador ──────────────────────────────────────────────────────
+        busqueda = st.text_input("🔍 Buscar por NCM o descripción", placeholder="Ej: 4704 o 'papel'", key="ncm_busqueda")
+        term = busqueda.strip().lower()
+
+        if term:
+            ncm_filtrado = ncm_info[
+                ncm_info["HSUSA"].str.lower().str.contains(term) |
+                ncm_info["Descripcion Partida"].str.lower().str.contains(term)
+            ]
+            if ncm_filtrado.empty:
+                st.info("Sin resultados para esa búsqueda.")
             else:
-                clave_ok = claves_df[claves_df["NbreCamara"] == camara_sel]["Pass"].values
-                if len(clave_ok) > 0 and clave_input == clave_ok[0]:
-                    # Limpiar TODA la sesión anterior antes de cargar la nueva cámara
-                    for k in list(st.session_state.keys()):
-                        del st.session_state[k]
-                    init()
-                    st.session_state.autenticado   = True
-                    st.session_state.camara_actual = camara_sel
-                    st.session_state.contacto_ok   = False
-                    st.session_state.paso          = 1
-                    ncms_camara = camaras_df[camaras_df["NbreCamara"] == camara_sel]["PartidaNCM"].tolist()
-                    st.session_state.ncm_sel = []
-                    for cod in ncms_camara:
-                        st.session_state[f"ck_{cod}"] = False
-                    # Cargar respuesta previa si existe
-                    try:
-                        sb = get_supabase()
-                        prev = sb.table("respuestas_encuesta")\
-                            .select("*")\
-                            .eq("camara", camara_sel)\
-                            .order("id", desc=True)\
-                            .limit(1)\
-                            .execute()
-                        if prev.data:
-                            r = prev.data[0]
-                            st.session_state.supabase_id   = r.get("id")
-                            st.session_state.nombre        = r.get("nombre", "")
-                            st.session_state.cargo         = r.get("cargo", "")
-                            st.session_state.email         = r.get("email", "")
-                            st.session_state.ncm_sel       = json.loads(r.get("ncm_seleccionados", "[]"))
-                            st.session_state.paises_sel    = json.loads(r.get("paises_interes", "[]"))
-                            st.session_state.pais_otro     = r.get("pais_otro", "")
-                            st.session_state.matriz_interes = json.loads(r.get("matriz_interes", "{}"))
-                            negs_raw = json.loads(r.get("negociaciones", "{}"))
-                            st.session_state.negs_sel = negs_raw if isinstance(negs_raw, dict) else {}
-                            st.session_state.neg_otro      = r.get("neg_otro", "")
-                            st.session_state.comentario    = r.get("comentario", "")
-                            barreras_raw = r.get("barreras", "{}")
-                            st.session_state.barreras = json.loads(barreras_raw) if barreras_raw else {}
-                            st.session_state.guardado      = True
-                            st.session_state.paso          = 4
-                            for cod in st.session_state.ncm_sel:
-                                st.session_state[f"ck_{cod}"] = True
-                    except Exception:
-                        pass
-                    st.rerun()
-                else:
-                    st.error("Clave incorrecta. Verificá e intentá nuevamente.")
-
-    # ── PASOS POST-LOGIN ──────────────────────────────────────────────────────
-    else:
-        camara = st.session_state.camara_actual
-        ncms_camara_todos = camaras_df[camaras_df["NbreCamara"] == camara]["PartidaNCM"].tolist()
-
-        # Si la cámara no tiene NCMs asignadas, saltar directamente a países
-        if not ncms_camara_todos and paso == 1:
-            st.info(f"La cámara **{camara}** no tiene subpartidas arancelarias asignadas. Podés continuar directamente a la selección de países.")
-            if st.button("Continuar →", type="primary"):
-                st.session_state.paso = 2; st.rerun()
-
-        # ── PASO 1 — SUBPARTIDAS NCM ──────────────────────────────────────────
-        elif paso == 1:
-            st.markdown("""
-            <div style="background:#1565c0; border-radius:50px; padding:0.7rem 1.5rem; text-align:center; margin-bottom:1rem;">
-              <span style="color:#ffffff; font-size:0.95rem;">⚠️ Antes de completar el formulario, realizá la <strong>Consulta de Comercio Exterior y Aranceles</strong> e <strong>Indicadores Macroeconómicos</strong>.</span>
-            </div>
-            """, unsafe_allow_html=True)
-            st.subheader("Subpartidas arancelarias (NCM)")
-            st.caption(f"Cámara: **{camara}** | {len(ncms_camara_todos)} subpartidas asignadas — marcá las que son de tu interés.")
-
-            ncm_set_camara = set(ncms_camara_todos)
-            ncm_info = (
-                ncm_df[ncm_df["HSUSA"].isin(ncm_set_camara)]
-                [["HSUSA","Subsector","Descripcion Partida"]]
-                .drop_duplicates("HSUSA")
-            )
-            sin_info = ncm_set_camara - set(ncm_info["HSUSA"])
-            if sin_info:
-                extra = pd.DataFrame({"HSUSA": list(sin_info), "Subsector": "Sin clasificar", "Descripcion Partida": ""})
-                ncm_info = pd.concat([ncm_info, extra], ignore_index=True)
-            ncm_info = ncm_info.sort_values("HSUSA")
-
-            col_a, col_b, _ = st.columns([1,1,4])
-            with col_a:
-                if st.button("✅ Marcar todas"):
-                    st.session_state.ncm_sel = ncms_camara_todos
-                    for cod in ncms_camara_todos: st.session_state[f"ck_{cod}"] = True
-                    st.rerun()
-            with col_b:
-                if st.button("☐ Desmarcar todas"):
-                    st.session_state.ncm_sel = []
-                    for cod in ncms_camara_todos: st.session_state[f"ck_{cod}"] = False
-                    st.rerun()
-
-            ncm_marcados = set(st.session_state.ncm_sel)
-
-            # ── Buscador ──────────────────────────────────────────────────────
-            busqueda = st.text_input("🔍 Buscar por NCM o descripción", placeholder="Ej: 4704 o 'papel'", key="ncm_busqueda")
-            term = busqueda.strip().lower()
-
-            if term:
-                ncm_filtrado = ncm_info[
-                    ncm_info["HSUSA"].str.lower().str.contains(term) |
-                    ncm_info["Descripcion Partida"].str.lower().str.contains(term)
-                ]
-                if ncm_filtrado.empty:
-                    st.info("Sin resultados para esa búsqueda.")
-                else:
-                    st.caption(f"{len(ncm_filtrado)} resultado(s) encontrado(s):")
-                    for _, row in ncm_filtrado.iterrows():
+                st.caption(f"{len(ncm_filtrado)} resultado(s) encontrado(s):")
+                for _, row in ncm_filtrado.iterrows():
+                    cod  = row["HSUSA"]
+                    desc = row["Descripcion Partida"]
+                    label = f"`{cod}` — {desc}" if desc else f"`{cod}`"
+                    val = st.session_state.get(f"ck_{cod}", cod in ncm_marcados)
+                    checked = st.checkbox(label, value=val, key=f"ck_{cod}")
+                    if checked: ncm_marcados.add(cod)
+                    else:       ncm_marcados.discard(cod)
+        else:
+            subsectores = sorted(ncm_info["Subsector"].dropna().unique())
+            for sub in subsectores:
+                sub_df = ncm_info[ncm_info["Subsector"] == sub]
+                ncms_sub = sub_df["HSUSA"].tolist()
+                marcados_sub = sum(1 for n in ncms_sub if n in ncm_marcados)
+                with st.expander(f"📂 {sub}  —  {marcados_sub}/{len(ncms_sub)} seleccionadas", expanded=True):
+                    for _, row in sub_df.iterrows():
                         cod  = row["HSUSA"]
                         desc = row["Descripcion Partida"]
                         label = f"`{cod}` — {desc}" if desc else f"`{cod}`"
@@ -480,417 +461,402 @@ if st.session_state.seccion == "📋 Interés comercial":
                         checked = st.checkbox(label, value=val, key=f"ck_{cod}")
                         if checked: ncm_marcados.add(cod)
                         else:       ncm_marcados.discard(cod)
+
+        st.session_state.ncm_sel = list(ncm_marcados)
+        st.markdown(f'<div class="card"><strong style="color:#90caf9">{len(st.session_state.ncm_sel)}</strong> subpartidas seleccionadas — esta selección refleja interés comercial y no impacta en el seguimiento de acuerdos o negociaciones.</div>', unsafe_allow_html=True)
+
+        if st.button("Continuar →", type="primary", use_container_width=True):
+            if not st.session_state.ncm_sel:
+                st.error("Seleccioná al menos una subpartida NCM.")
             else:
-                subsectores = sorted(ncm_info["Subsector"].dropna().unique())
-                for sub in subsectores:
-                    sub_df = ncm_info[ncm_info["Subsector"] == sub]
-                    ncms_sub = sub_df["HSUSA"].tolist()
-                    marcados_sub = sum(1 for n in ncms_sub if n in ncm_marcados)
-                    with st.expander(f"📂 {sub}  —  {marcados_sub}/{len(ncms_sub)} seleccionadas", expanded=True):
-                        for _, row in sub_df.iterrows():
-                            cod  = row["HSUSA"]
-                            desc = row["Descripcion Partida"]
-                            label = f"`{cod}` — {desc}" if desc else f"`{cod}`"
-                            val = st.session_state.get(f"ck_{cod}", cod in ncm_marcados)
-                            checked = st.checkbox(label, value=val, key=f"ck_{cod}")
-                            if checked: ncm_marcados.add(cod)
-                            else:       ncm_marcados.discard(cod)
+                st.session_state.paso = 2; st.rerun()
 
-            st.session_state.ncm_sel = list(ncm_marcados)
-            st.markdown(f'<div class="card"><strong style="color:#90caf9">{len(st.session_state.ncm_sel)}</strong> subpartidas seleccionadas — esta selección refleja interés comercial y no impacta en el seguimiento de acuerdos o negociaciones.</div>', unsafe_allow_html=True)
+    # ── PASO 2 — PAÍSES E INTERÉS COMERCIAL ──────────────────────────────
+    elif paso == 2:
+        st.subheader("Países e interés comercial")
+        st.caption("Seleccioná los países de interés e indicá tu relación comercial con cada uno.")
 
-            if st.button("Continuar →", type="primary", use_container_width=True):
-                if not st.session_state.ncm_sel:
-                    st.error("Seleccioná al menos una subpartida NCM.")
+        st.markdown("#### ¿Con qué países tiene o quisiera tener vínculos comerciales?")
+
+        paises_sel = set(st.session_state.paises_sel)
+        cols = st.columns(4)
+        for i, pais in enumerate(TODOS_PAISES):
+            with cols[i % 4]:
+                if st.checkbox(pais, value=pais in paises_sel, key=f"pais_{pais}"):
+                    paises_sel.add(pais)
                 else:
-                    st.session_state.paso = 2; st.rerun()
+                    paises_sel.discard(pais)
 
-        # ── PASO 2 — PAÍSES E INTERÉS COMERCIAL ──────────────────────────────
-        elif paso == 2:
-            st.subheader("Países e interés comercial")
-            st.caption("Seleccioná los países de interés e indicá tu relación comercial con cada uno.")
+        # Otro país
+        st.markdown("")
+        otro_check = st.checkbox("Otro país", value=bool(st.session_state.pais_otro), key="pais_otro_check")
+        pais_otro = ""
+        if otro_check:
+            pais_otro = st.text_input("¿Cuál?", value=st.session_state.pais_otro,
+                                      placeholder="Ingresá el nombre del país",
+                                      help="A la brevedad se incorporarán datos de comercio para este destino.")
+            if pais_otro:
+                st.info("📌 Registraremos tu interés. A la brevedad se incorporarán datos de ese mercado.")
 
-            st.markdown("#### ¿Con qué países tiene o quisiera tener vínculos comerciales?")
+        paises_lista = list(paises_sel)
 
-            paises_sel = set(st.session_state.paises_sel)
-            cols = st.columns(4)
-            for i, pais in enumerate(TODOS_PAISES):
-                with cols[i % 4]:
-                    if st.checkbox(pais, value=pais in paises_sel, key=f"pais_{pais}"):
-                        paises_sel.add(pais)
-                    else:
-                        paises_sel.discard(pais)
-
-            # Otro país
-            st.markdown("")
-            otro_check = st.checkbox("Otro país", value=bool(st.session_state.pais_otro), key="pais_otro_check")
-            pais_otro = ""
-            if otro_check:
-                pais_otro = st.text_input("¿Cuál?", value=st.session_state.pais_otro,
-                                          placeholder="Ingresá el nombre del país",
-                                          help="A la brevedad se incorporarán datos de comercio para este destino.")
-                if pais_otro:
-                    st.info("📌 Registraremos tu interés. A la brevedad se incorporarán datos de ese mercado.")
-
-            paises_lista = list(paises_sel)
-
-            # ── Tabla de interés comercial por NCM × País ─────────────────────
-            if paises_lista:
-                st.markdown("---")
-                st.markdown("#### Interés comercial por subpartida y país")
-                st.caption("Indicá para cada combinación si exportás, importás y si conocés el mercado. Podés tildar más de una opción.")
-
-                ncm_sel_set = set(st.session_state.ncm_sel)
-                matriz = dict(st.session_state.matriz_interes)
-
-                ncm_info_sel = (
-                    ncm_df[ncm_df["HSUSA"].isin(ncm_sel_set)]
-                    [["HSUSA","Descripcion Partida"]]
-                    .drop_duplicates("HSUSA")
-                    .sort_values("HSUSA")
-                )
-
-                for pais in sorted(paises_lista):
-                    st.markdown(f"**🌍 {pais}**")
-                    header_cols = st.columns([3, 1, 1, 1])
-                    header_cols[0].markdown('<span style="color:#90caf9; font-size:0.85rem;">Subpartida</span>', unsafe_allow_html=True)
-                    header_cols[1].markdown('<span style="color:#90caf9; font-size:0.85rem;">Exporta</span>', unsafe_allow_html=True)
-                    header_cols[2].markdown('<span style="color:#90caf9; font-size:0.85rem;">Importa</span>', unsafe_allow_html=True)
-                    header_cols[3].markdown('<span style="color:#90caf9; font-size:0.85rem;">Conoce el mercado</span>', unsafe_allow_html=True)
-
-                    for _, row in ncm_info_sel.iterrows():
-                        ncm = row["HSUSA"]
-                        desc = row["Descripcion Partida"]
-                        label_ncm = f"`{ncm}` {desc[:45]}" if desc else f"`{ncm}`"
-                        key = (ncm, pais)
-                        prev = matriz.get(str(key), {"exporta": False, "importa": False, "conoce": False})
-
-                        r = st.columns([3, 1, 1, 1])
-                        r[0].markdown(f'<span style="font-size:0.85rem;">{label_ncm}</span>', unsafe_allow_html=True)
-                        exp_v = r[1].checkbox("", value=prev.get("exporta", False), key=f"exp_{ncm}_{pais}", label_visibility="collapsed")
-                        imp_v = r[2].checkbox("", value=prev.get("importa", False), key=f"imp_{ncm}_{pais}", label_visibility="collapsed")
-                        con_v = r[3].checkbox("", value=prev.get("conoce",  False), key=f"con_{ncm}_{pais}", label_visibility="collapsed")
-                        matriz[str(key)] = {"exporta": exp_v, "importa": imp_v, "conoce": con_v}
-
-                    st.markdown("")
-
-                st.session_state.matriz_interes = matriz
-
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("← Volver", use_container_width=True): st.session_state.paso = 1; st.rerun()
-            with col2:
-                if st.button("Continuar →", type="primary", use_container_width=True):
-                    if not paises_lista:
-                        st.error("Seleccioná al menos un país.")
-                    else:
-                        st.session_state.paises_sel = paises_lista
-                        st.session_state.pais_otro  = pais_otro
-                        st.session_state.paso = 4; st.rerun()
-
-        # paso 3 movido al menú Acuerdos comerciales
-        elif paso == 3:
-            st.session_state.paso = 5; st.rerun()
-
-        # ── PASO 5 — BARRERAS AL COMERCIO ────────────────────────────────────
-        elif paso == 5:
-            st.subheader("Paso 5 — Barreras al comercio (opcional)")
-            st.caption("Esta sección relevará información sobre obstáculos regulatorios y otras disciplinas comerciales.")
-
-            b = st.session_state.barreras
-
-            # ── REGLAS DE ORIGEN ──
-            st.markdown("#### 📋 Reglas de Origen")
-            origen_info = st.text_area(
-                "Información relevante sobre Reglas de Origen (NCMs, acuerdos, requisitos, etc.)",
-                value=b.get("origen_info", ""), height=80,
-                placeholder="Ingresá comentarios sobre reglas de origen aplicables a tus productos...",
-                key="b_origen_info"
-            )
-            origen_reos_mercosur = st.radio(
-                "¿Pueden adoptarse los mismos Requisitos Específicos de Origen (REOs) negociados en Mercosur (ACE-18)?",
-                options=["—", "Sí", "No"], index=["—","Sí","No"].index(b.get("origen_reos_mercosur","—")),
-                horizontal=True, key="b_origen_mercosur"
-            )
-            origen_reos_ue = st.radio(
-                "¿Pueden adoptarse los mismos REOs negociados en el acuerdo Mercosur-Unión Europea?",
-                options=["—", "Sí", "No"], index=["—","Sí","No"].index(b.get("origen_reos_ue","—")),
-                horizontal=True, key="b_origen_ue"
-            )
-
+        # ── Tabla de interés comercial por NCM × País ─────────────────────
+        if paises_lista:
             st.markdown("---")
-
-            # ── TBT ──
-            st.markdown("#### 🔧 Barreras Técnicas al Comercio (TBT)")
-            TBT_OBSTACULOS = [
-                "Falta de transparencia en requisitos técnicos o procedimientos de evaluación de la conformidad",
-                "Dificultades de participación en el proceso de elaboración de reglamentos",
-                "Reglamentos técnicos divergentes de normas internacionales relevantes (ISO/IEC, etc.)",
-                "Requisitos técnicos excesivamente restrictivos o prescriptivos",
-                "No reconocimiento de equivalencia de reglamentos técnicos",
-                "Duplicidad de ensayos, inspecciones o certificaciones",
-                "Procedimientos de evaluación de la conformidad más onerosos de lo necesario",
-                "Demoras o incertidumbre en procesos de registro/aprobación (plazos indeterminados)",
-                "No reconocimiento de resultados de procedimientos de evaluación de la conformidad",
-                "Exigencias impuestas por agentes privados (importadores, distribuidores, retail)",
-            ]
-            tbt_tiene = st.radio(
-                "¿Identificás cuestiones regulatorias en TBT que impacten negativamente la negociación?",
-                options=["—", "Sí", "No"], index=["—","Sí","No"].index(b.get("tbt_tiene","—")),
-                horizontal=True, key="b_tbt_tiene"
-            )
-            tbt_obstaculos = []
-            tbt_otro = ""
-            tbt_caso = ""
-            if tbt_tiene == "Sí":
-                st.markdown("**Tipos de divergencias/obstáculos identificados** (marcá todos los que apliquen):")
-                prev_obs = b.get("tbt_obstaculos", [])
-                for i, obs in enumerate(TBT_OBSTACULOS):
-                    if st.checkbox(obs, value=obs in prev_obs, key=f"tbt_{i}"):
-                        tbt_obstaculos.append(obs)
-                tbt_otro = st.text_input("Otros (especificá)", value=b.get("tbt_otro",""), key="b_tbt_otro")
-                tbt_caso = st.text_area(
-                    "Describí un caso concreto (sector, producto con NCM, normativa específica, estimación de impacto):",
-                    value=b.get("tbt_caso",""), height=100, key="b_tbt_caso"
-                )
-
-            st.markdown("---")
-
-            # ── SPS ──
-            st.markdown("#### 🌱 Medidas Sanitarias y Fitosanitarias (SPS)")
-            SPS_OBSTACULOS = [
-                "Falta de transparencia en requisitos sanitarios/fitosanitarios o procedimientos de certificación/inspección",
-                "Dificultades de participación en el proceso de elaboración de medidas SPS",
-                "Divergencia con normas internacionales relevantes (Codex, WOAH, IPPC)",
-                "No reconocimiento de regionalización/zonas libres o de compartimentación",
-                "No reconocimiento de equivalencia de medidas o sistemas oficiales",
-                "Exigencias de certificación/inspección duplicadas",
-                "Exigencias de certificación/inspección más onerosas de lo necesario",
-                "Metodologías de muestreo/ensayo sin base científica adecuada",
-                "Demoras o incertidumbre en procesos de autorización/aprobación (plazos indeterminados)",
-                "No aceptación de certificados electrónicos cuando están disponibles",
-                "Exigencias impuestas por agentes privados (importadores, distribuidores, retail)",
-            ]
-            sps_tiene = st.radio(
-                "¿Identificás medidas SPS que impacten negativamente la negociación?",
-                options=["—", "Sí", "No"], index=["—","Sí","No"].index(b.get("sps_tiene","—")),
-                horizontal=True, key="b_sps_tiene"
-            )
-            sps_obstaculos = []
-            sps_otro = ""
-            sps_caso = ""
-            if sps_tiene == "Sí":
-                st.markdown("**Tipos de medidas/obstáculos SPS** (marcá todos los que apliquen):")
-                prev_sps = b.get("sps_obstaculos", [])
-                for i, obs in enumerate(SPS_OBSTACULOS):
-                    if st.checkbox(obs, value=obs in prev_sps, key=f"sps_{i}"):
-                        sps_obstaculos.append(obs)
-                sps_otro = st.text_input("Otros (especificá)", value=b.get("sps_otro",""), key="b_sps_otro")
-                sps_caso = st.text_area(
-                    "Describí un caso concreto (sector, producto con NCM, normativa específica, estimación de impacto):",
-                    value=b.get("sps_caso",""), height=100, key="b_sps_caso"
-                )
-
-            st.markdown("---")
-
-            # ── OTRAS DISCIPLINAS ──
-            st.markdown("#### 📌 Otras Disciplinas Comerciales")
-            DISCIPLINAS = [
-                "Comercio de Servicios",
-                "Inversiones",
-                "Propiedad Intelectual",
-                "Compras Gubernamentales",
-                "Defensa Comercial",
-                "Salvaguardas bilaterales",
-                "Facilitación de Comercio y Cooperación Aduanera",
-                "Buenas Prácticas Regulatorias",
-                "Defensa de la Competencia",
-                "Solución de Controversias",
-                "Micro y Pequeñas Empresas",
-                "Comercio y Desarrollo Sostenible",
-            ]
-            st.markdown("¿Identificás disciplinas comerciales relevantes para la negociación? (marcá todas las que apliquen):")
-            prev_disc = b.get("disciplinas", [])
-            disciplinas_sel = []
-            for i, disc in enumerate(DISCIPLINAS):
-                if st.checkbox(disc, value=disc in prev_disc, key=f"disc_{i}"):
-                    disciplinas_sel.append(disc)
-            disciplinas_comentario = st.text_area(
-                "Si marcaste alguna disciplina, describí el interés ofensivo o la preocupación defensiva:",
-                value=b.get("disciplinas_comentario",""), height=100, key="b_disc_comentario"
-            )
-
-            st.markdown("---")
-
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("← Volver", use_container_width=True):
-                    st.session_state.paso = 2; st.rerun()
-            with col2:
-                if st.button("Ver resumen →", type="primary", use_container_width=True):
-                    st.session_state.barreras = {
-                        "origen_info":             origen_info,
-                        "origen_reos_mercosur":    origen_reos_mercosur,
-                        "origen_reos_ue":          origen_reos_ue,
-                        "tbt_tiene":               tbt_tiene,
-                        "tbt_obstaculos":          tbt_obstaculos,
-                        "tbt_otro":                tbt_otro,
-                        "tbt_caso":                tbt_caso,
-                        "sps_tiene":               sps_tiene,
-                        "sps_obstaculos":          sps_obstaculos,
-                        "sps_otro":                sps_otro,
-                        "sps_caso":                sps_caso,
-                        "disciplinas":             disciplinas_sel,
-                        "disciplinas_comentario":  disciplinas_comentario,
-                    }
-                    st.session_state.paso = 4; st.rerun()
-
-        # ── PASO 4 — RESUMEN ──────────────────────────────────────────────────
-        elif paso == 4:
-            st.subheader("Resumen")
-            st.markdown('<div class="disclaimer">ℹ️ Los datos de comercio son estimados en base a información de INDEC y fuentes oficiales de los países. La selección de subpartidas refleja interés comercial y no implica posición sobre acuerdos o negociaciones.</div>', unsafe_allow_html=True)
-
-            c1, c2 = st.columns(2)
-            with c1:
-                cargo_h = f'<p><strong style="color:#90caf9">Cargo:</strong> {st.session_state.cargo}</p>' if st.session_state.cargo else ""
-                email_h = f'<p><strong style="color:#90caf9">Email:</strong> {st.session_state.email}</p>' if st.session_state.email else ""
-                st.markdown(f"""<div class="card">
-                  <p><strong style="color:#90caf9">Cámara:</strong> {camara}</p>
-                  <p><strong style="color:#90caf9">Nombre:</strong> {st.session_state.nombre}</p>
-                  {cargo_h}{email_h}
-                  <p><strong style="color:#90caf9">Subpartidas NCM seleccionadas:</strong> {len(st.session_state.ncm_sel)}</p>
-                </div>""", unsafe_allow_html=True)
-            with c2:
-                paises_txt = ", ".join(sorted(st.session_state.paises_sel))
-                if st.session_state.pais_otro:
-                    paises_txt += f", {st.session_state.pais_otro} (a incorporar)"
-                negs_d = st.session_state.negs_sel if isinstance(st.session_state.negs_sel, dict) else {}
-                if negs_d:
-                    negs_txt = ", ".join([f"{k} (Expo: {v.get('exportador','—')} / Impo: {v.get('importadora','—')})" for k, v in negs_d.items()])
-                else:
-                    negs_txt = "Ninguna"
-                if st.session_state.neg_otro:
-                    negs_txt += f", {st.session_state.neg_otro}"
-                com_h = f'<p><strong style="color:#90caf9">Comentario:</strong><br>{st.session_state.comentario}</p>' if st.session_state.comentario else ""
-                st.markdown(f"""<div class="card">
-                  <p><strong style="color:#90caf9">Países de interés:</strong><br>{paises_txt or "Ninguno"}</p>
-                  <p><strong style="color:#90caf9">Acuerdos y negociaciones:</strong><br>{negs_txt}</p>
-                  {com_h}
-                </div>""", unsafe_allow_html=True)
-
-            # ── Detalle por subpartida NCM con datos de comercio ──────────────
-            st.markdown("#### Ver detalle por subpartida NCM con datos de comercio")
+            st.markdown("#### Interés comercial por subpartida y país")
+            st.caption("Indicá para cada combinación si exportás, importás y si conocés el mercado. Podés tildar más de una opción.")
 
             ncm_sel_set = set(st.session_state.ncm_sel)
-            paises_elegidos = [p for p in st.session_state.paises_sel if p in NOMBRE_MUNDO or p in PAIS_CODINDEC]
-            matriz = st.session_state.matriz_interes
+            matriz = dict(st.session_state.matriz_interes)
 
-            if not paises_elegidos:
-                st.info("No hay países con datos de comercio disponibles para mostrar.")
+            ncm_info_sel = (
+                ncm_df[ncm_df["HSUSA"].isin(ncm_sel_set)]
+                [["HSUSA","Descripcion Partida"]]
+                .drop_duplicates("HSUSA")
+                .sort_values("HSUSA")
+            )
+
+            for pais in sorted(paises_lista):
+                st.markdown(f"**🌍 {pais}**")
+                header_cols = st.columns([3, 1, 1, 1])
+                header_cols[0].markdown('<span style="color:#90caf9; font-size:0.85rem;">Subpartida</span>', unsafe_allow_html=True)
+                header_cols[1].markdown('<span style="color:#90caf9; font-size:0.85rem;">Exporta</span>', unsafe_allow_html=True)
+                header_cols[2].markdown('<span style="color:#90caf9; font-size:0.85rem;">Importa</span>', unsafe_allow_html=True)
+                header_cols[3].markdown('<span style="color:#90caf9; font-size:0.85rem;">Conoce el mercado</span>', unsafe_allow_html=True)
+
+                for _, row in ncm_info_sel.iterrows():
+                    ncm = row["HSUSA"]
+                    desc = row["Descripcion Partida"]
+                    label_ncm = f"`{ncm}` {desc[:45]}" if desc else f"`{ncm}`"
+                    key = (ncm, pais)
+                    prev = matriz.get(str(key), {"exporta": False, "importa": False, "conoce": False})
+
+                    r = st.columns([3, 1, 1, 1])
+                    r[0].markdown(f'<span style="font-size:0.85rem;">{label_ncm}</span>', unsafe_allow_html=True)
+                    exp_v = r[1].checkbox("", value=prev.get("exporta", False), key=f"exp_{ncm}_{pais}", label_visibility="collapsed")
+                    imp_v = r[2].checkbox("", value=prev.get("importa", False), key=f"imp_{ncm}_{pais}", label_visibility="collapsed")
+                    con_v = r[3].checkbox("", value=prev.get("conoce",  False), key=f"con_{ncm}_{pais}", label_visibility="collapsed")
+                    matriz[str(key)] = {"exporta": exp_v, "importa": imp_v, "conoce": con_v}
+
+                st.markdown("")
+
+            st.session_state.matriz_interes = matriz
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("← Volver", use_container_width=True): st.session_state.paso = 1; st.rerun()
+        with col2:
+            if st.button("Continuar →", type="primary", use_container_width=True):
+                if not paises_lista:
+                    st.error("Seleccioná al menos un país.")
+                else:
+                    st.session_state.paises_sel = paises_lista
+                    st.session_state.pais_otro  = pais_otro
+                    st.session_state.paso = 4; st.rerun()
+
+    # paso 3 movido al menú Acuerdos comerciales
+    elif paso == 3:
+        st.session_state.paso = 5; st.rerun()
+
+    # ── PASO 5 — BARRERAS AL COMERCIO ────────────────────────────────────
+    elif paso == 5:
+        st.subheader("Paso 5 — Barreras al comercio (opcional)")
+        st.caption("Esta sección relevará información sobre obstáculos regulatorios y otras disciplinas comerciales.")
+
+        b = st.session_state.barreras
+
+        # ── REGLAS DE ORIGEN ──
+        st.markdown("#### 📋 Reglas de Origen")
+        origen_info = st.text_area(
+            "Información relevante sobre Reglas de Origen (NCMs, acuerdos, requisitos, etc.)",
+            value=b.get("origen_info", ""), height=80,
+            placeholder="Ingresá comentarios sobre reglas de origen aplicables a tus productos...",
+            key="b_origen_info"
+        )
+        origen_reos_mercosur = st.radio(
+            "¿Pueden adoptarse los mismos Requisitos Específicos de Origen (REOs) negociados en Mercosur (ACE-18)?",
+            options=["—", "Sí", "No"], index=["—","Sí","No"].index(b.get("origen_reos_mercosur","—")),
+            horizontal=True, key="b_origen_mercosur"
+        )
+        origen_reos_ue = st.radio(
+            "¿Pueden adoptarse los mismos REOs negociados en el acuerdo Mercosur-Unión Europea?",
+            options=["—", "Sí", "No"], index=["—","Sí","No"].index(b.get("origen_reos_ue","—")),
+            horizontal=True, key="b_origen_ue"
+        )
+
+        st.markdown("---")
+
+        # ── TBT ──
+        st.markdown("#### 🔧 Barreras Técnicas al Comercio (TBT)")
+        TBT_OBSTACULOS = [
+            "Falta de transparencia en requisitos técnicos o procedimientos de evaluación de la conformidad",
+            "Dificultades de participación en el proceso de elaboración de reglamentos",
+            "Reglamentos técnicos divergentes de normas internacionales relevantes (ISO/IEC, etc.)",
+            "Requisitos técnicos excesivamente restrictivos o prescriptivos",
+            "No reconocimiento de equivalencia de reglamentos técnicos",
+            "Duplicidad de ensayos, inspecciones o certificaciones",
+            "Procedimientos de evaluación de la conformidad más onerosos de lo necesario",
+            "Demoras o incertidumbre en procesos de registro/aprobación (plazos indeterminados)",
+            "No reconocimiento de resultados de procedimientos de evaluación de la conformidad",
+            "Exigencias impuestas por agentes privados (importadores, distribuidores, retail)",
+        ]
+        tbt_tiene = st.radio(
+            "¿Identificás cuestiones regulatorias en TBT que impacten negativamente la negociación?",
+            options=["—", "Sí", "No"], index=["—","Sí","No"].index(b.get("tbt_tiene","—")),
+            horizontal=True, key="b_tbt_tiene"
+        )
+        tbt_obstaculos = []
+        tbt_otro = ""
+        tbt_caso = ""
+        if tbt_tiene == "Sí":
+            st.markdown("**Tipos de divergencias/obstáculos identificados** (marcá todos los que apliquen):")
+            prev_obs = b.get("tbt_obstaculos", [])
+            for i, obs in enumerate(TBT_OBSTACULOS):
+                if st.checkbox(obs, value=obs in prev_obs, key=f"tbt_{i}"):
+                    tbt_obstaculos.append(obs)
+            tbt_otro = st.text_input("Otros (especificá)", value=b.get("tbt_otro",""), key="b_tbt_otro")
+            tbt_caso = st.text_area(
+                "Describí un caso concreto (sector, producto con NCM, normativa específica, estimación de impacto):",
+                value=b.get("tbt_caso",""), height=100, key="b_tbt_caso"
+            )
+
+        st.markdown("---")
+
+        # ── SPS ──
+        st.markdown("#### 🌱 Medidas Sanitarias y Fitosanitarias (SPS)")
+        SPS_OBSTACULOS = [
+            "Falta de transparencia en requisitos sanitarios/fitosanitarios o procedimientos de certificación/inspección",
+            "Dificultades de participación en el proceso de elaboración de medidas SPS",
+            "Divergencia con normas internacionales relevantes (Codex, WOAH, IPPC)",
+            "No reconocimiento de regionalización/zonas libres o de compartimentación",
+            "No reconocimiento de equivalencia de medidas o sistemas oficiales",
+            "Exigencias de certificación/inspección duplicadas",
+            "Exigencias de certificación/inspección más onerosas de lo necesario",
+            "Metodologías de muestreo/ensayo sin base científica adecuada",
+            "Demoras o incertidumbre en procesos de autorización/aprobación (plazos indeterminados)",
+            "No aceptación de certificados electrónicos cuando están disponibles",
+            "Exigencias impuestas por agentes privados (importadores, distribuidores, retail)",
+        ]
+        sps_tiene = st.radio(
+            "¿Identificás medidas SPS que impacten negativamente la negociación?",
+            options=["—", "Sí", "No"], index=["—","Sí","No"].index(b.get("sps_tiene","—")),
+            horizontal=True, key="b_sps_tiene"
+        )
+        sps_obstaculos = []
+        sps_otro = ""
+        sps_caso = ""
+        if sps_tiene == "Sí":
+            st.markdown("**Tipos de medidas/obstáculos SPS** (marcá todos los que apliquen):")
+            prev_sps = b.get("sps_obstaculos", [])
+            for i, obs in enumerate(SPS_OBSTACULOS):
+                if st.checkbox(obs, value=obs in prev_sps, key=f"sps_{i}"):
+                    sps_obstaculos.append(obs)
+            sps_otro = st.text_input("Otros (especificá)", value=b.get("sps_otro",""), key="b_sps_otro")
+            sps_caso = st.text_area(
+                "Describí un caso concreto (sector, producto con NCM, normativa específica, estimación de impacto):",
+                value=b.get("sps_caso",""), height=100, key="b_sps_caso"
+            )
+
+        st.markdown("---")
+
+        # ── OTRAS DISCIPLINAS ──
+        st.markdown("#### 📌 Otras Disciplinas Comerciales")
+        DISCIPLINAS = [
+            "Comercio de Servicios",
+            "Inversiones",
+            "Propiedad Intelectual",
+            "Compras Gubernamentales",
+            "Defensa Comercial",
+            "Salvaguardas bilaterales",
+            "Facilitación de Comercio y Cooperación Aduanera",
+            "Buenas Prácticas Regulatorias",
+            "Defensa de la Competencia",
+            "Solución de Controversias",
+            "Micro y Pequeñas Empresas",
+            "Comercio y Desarrollo Sostenible",
+        ]
+        st.markdown("¿Identificás disciplinas comerciales relevantes para la negociación? (marcá todas las que apliquen):")
+        prev_disc = b.get("disciplinas", [])
+        disciplinas_sel = []
+        for i, disc in enumerate(DISCIPLINAS):
+            if st.checkbox(disc, value=disc in prev_disc, key=f"disc_{i}"):
+                disciplinas_sel.append(disc)
+        disciplinas_comentario = st.text_area(
+            "Si marcaste alguna disciplina, describí el interés ofensivo o la preocupación defensiva:",
+            value=b.get("disciplinas_comentario",""), height=100, key="b_disc_comentario"
+        )
+
+        st.markdown("---")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("← Volver", use_container_width=True):
+                st.session_state.paso = 2; st.rerun()
+        with col2:
+            if st.button("Ver resumen →", type="primary", use_container_width=True):
+                st.session_state.barreras = {
+                    "origen_info":             origen_info,
+                    "origen_reos_mercosur":    origen_reos_mercosur,
+                    "origen_reos_ue":          origen_reos_ue,
+                    "tbt_tiene":               tbt_tiene,
+                    "tbt_obstaculos":          tbt_obstaculos,
+                    "tbt_otro":                tbt_otro,
+                    "tbt_caso":                tbt_caso,
+                    "sps_tiene":               sps_tiene,
+                    "sps_obstaculos":          sps_obstaculos,
+                    "sps_otro":                sps_otro,
+                    "sps_caso":                sps_caso,
+                    "disciplinas":             disciplinas_sel,
+                    "disciplinas_comentario":  disciplinas_comentario,
+                }
+                st.session_state.paso = 4; st.rerun()
+
+    # ── PASO 4 — RESUMEN ──────────────────────────────────────────────────
+    elif paso == 4:
+        st.subheader("Resumen")
+        st.markdown('<div class="disclaimer">ℹ️ Los datos de comercio son estimados en base a información de INDEC y fuentes oficiales de los países. La selección de subpartidas refleja interés comercial y no implica posición sobre acuerdos o negociaciones.</div>', unsafe_allow_html=True)
+
+        c1, c2 = st.columns(2)
+        with c1:
+            cargo_h = f'<p><strong style="color:#90caf9">Cargo:</strong> {st.session_state.cargo}</p>' if st.session_state.cargo else ""
+            email_h = f'<p><strong style="color:#90caf9">Email:</strong> {st.session_state.email}</p>' if st.session_state.email else ""
+            st.markdown(f"""<div class="card">
+              <p><strong style="color:#90caf9">Cámara:</strong> {camara}</p>
+              <p><strong style="color:#90caf9">Nombre:</strong> {st.session_state.nombre}</p>
+              {cargo_h}{email_h}
+              <p><strong style="color:#90caf9">Subpartidas NCM seleccionadas:</strong> {len(st.session_state.ncm_sel)}</p>
+            </div>""", unsafe_allow_html=True)
+        with c2:
+            paises_txt = ", ".join(sorted(st.session_state.paises_sel))
+            if st.session_state.pais_otro:
+                paises_txt += f", {st.session_state.pais_otro} (a incorporar)"
+            negs_d = st.session_state.negs_sel if isinstance(st.session_state.negs_sel, dict) else {}
+            if negs_d:
+                negs_txt = ", ".join([f"{k} (Expo: {v.get('exportador','—')} / Impo: {v.get('importadora','—')})" for k, v in negs_d.items()])
             else:
-                for pais in sorted(paises_elegidos):
-                    with st.expander(f"🌍 {pais}", expanded=True):
-                        codigos = PAIS_CODINDEC.get(pais, [])
-                        nombre_m = NOMBRE_MUNDO.get(pais)
-                        filas = []
-                        for ncm in sorted(ncm_sel_set):
-                            key = str((ncm, pais))
-                            interes = matriz.get(key, {})
-                            expo_v = "✓" if interes.get("exporta") else ""
-                            impo_v = "✓" if interes.get("importa") else ""
-                            con_v  = "✓" if interes.get("conoce")  else ""
+                negs_txt = "Ninguna"
+            if st.session_state.neg_otro:
+                negs_txt += f", {st.session_state.neg_otro}"
+            com_h = f'<p><strong style="color:#90caf9">Comentario:</strong><br>{st.session_state.comentario}</p>' if st.session_state.comentario else ""
+            st.markdown(f"""<div class="card">
+              <p><strong style="color:#90caf9">Países de interés:</strong><br>{paises_txt or "Ninguno"}</p>
+              <p><strong style="color:#90caf9">Acuerdos y negociaciones:</strong><br>{negs_txt}</p>
+              {com_h}
+            </div>""", unsafe_allow_html=True)
 
-                            desc = ncm_df[ncm_df["HSUSA"] == ncm]["Descripcion Partida"].values
-                            desc = desc[0][:55] if len(desc) > 0 else ""
+        # ── Detalle por subpartida NCM con datos de comercio ──────────────
+        st.markdown("#### Ver detalle por subpartida NCM con datos de comercio")
 
-                            expo_a = expo_arg[(expo_arg["ncm6"] == ncm) & (expo_arg["pais"].isin(codigos))]["fob"].sum() / 1000
-                            impo_a = impo_arg[(impo_arg["ncm6"] == ncm) & (impo_arg["pais"].isin(codigos))]["cif"].sum() / 1000
+        ncm_sel_set = set(st.session_state.ncm_sel)
+        paises_elegidos = [p for p in st.session_state.paises_sel if p in NOMBRE_MUNDO or p in PAIS_CODINDEC]
+        matriz = st.session_state.matriz_interes
 
-                            if nombre_m:
-                                expo_p = expo_mundo[(expo_mundo["cmdCode"] == ncm) & (expo_mundo["pais"] == nombre_m)]["fobvalue"].sum()
-                                impo_p = impo_mundo[(impo_mundo["cmdCode"] == ncm) & (impo_mundo["pais"] == nombre_m)]["cifvalue"].sum()
-                            else:
-                                expo_p = impo_p = 0
+        if not paises_elegidos:
+            st.info("No hay países con datos de comercio disponibles para mostrar.")
+        else:
+            for pais in sorted(paises_elegidos):
+                with st.expander(f"🌍 {pais}", expanded=True):
+                    codigos = PAIS_CODINDEC.get(pais, [])
+                    nombre_m = NOMBRE_MUNDO.get(pais)
+                    filas = []
+                    for ncm in sorted(ncm_sel_set):
+                        key = str((ncm, pais))
+                        interes = matriz.get(key, {})
+                        expo_v = "✓" if interes.get("exporta") else ""
+                        impo_v = "✓" if interes.get("importa") else ""
+                        con_v  = "✓" if interes.get("conoce")  else ""
 
-                            filas.append({
-                                "NCM": ncm,
-                                "Descripción": desc,
-                                "Exporta": expo_v,
-                                "Importa": impo_v,
-                                "Conoce mercado": con_v,
-                                f"Arg → {pais} (Miles de USD)": round(expo_a, 1),
-                                f"Arg ← {pais} (Miles de USD)": round(impo_a, 1),
-                                f"{pais} → Mundo (Miles de USD)": round(expo_p, 1),
-                                f"{pais} ← Mundo (Miles de USD)": round(impo_p, 1),
-                            })
+                        desc = ncm_df[ncm_df["HSUSA"] == ncm]["Descripcion Partida"].values
+                        desc = desc[0][:55] if len(desc) > 0 else ""
 
-                        if filas:
-                            df_res = pd.DataFrame(filas)
-                            st.dataframe(df_res, use_container_width=True, hide_index=True, height=350)
+                        expo_a = expo_arg[(expo_arg["ncm6"] == ncm) & (expo_arg["pais"].isin(codigos))]["fob"].sum() / 1000
+                        impo_a = impo_arg[(impo_arg["ncm6"] == ncm) & (impo_arg["pais"].isin(codigos))]["cif"].sum() / 1000
+
+                        if nombre_m:
+                            expo_p = expo_mundo[(expo_mundo["cmdCode"] == ncm) & (expo_mundo["pais"] == nombre_m)]["fobvalue"].sum()
+                            impo_p = impo_mundo[(impo_mundo["cmdCode"] == ncm) & (impo_mundo["pais"] == nombre_m)]["cifvalue"].sum()
                         else:
-                            st.info("Sin datos para las subpartidas seleccionadas.")
+                            expo_p = impo_p = 0
 
-            st.markdown("---")
-            if st.session_state.guardado:
-                st.success("✅ Respuesta guardada correctamente. ¡Muchas gracias!")
-                col1, col2, _ = st.columns([1, 1, 1])
-                with col1:
-                    if st.button("✏️ Modificar respuesta", use_container_width=True):
-                        st.session_state.guardado = False
-                        st.session_state.paso = 1
+                        filas.append({
+                            "NCM": ncm,
+                            "Descripción": desc,
+                            "Exporta": expo_v,
+                            "Importa": impo_v,
+                            "Conoce mercado": con_v,
+                            f"Arg → {pais} (Miles de USD)": round(expo_a, 1),
+                            f"Arg ← {pais} (Miles de USD)": round(impo_a, 1),
+                            f"{pais} → Mundo (Miles de USD)": round(expo_p, 1),
+                            f"{pais} ← Mundo (Miles de USD)": round(impo_p, 1),
+                        })
+
+                    if filas:
+                        df_res = pd.DataFrame(filas)
+                        st.dataframe(df_res, use_container_width=True, hide_index=True, height=350)
+                    else:
+                        st.info("Sin datos para las subpartidas seleccionadas.")
+
+        st.markdown("---")
+        if st.session_state.guardado:
+            st.success("✅ Respuesta guardada correctamente. ¡Muchas gracias!")
+            col1, col2, _ = st.columns([1, 1, 1])
+            with col1:
+                if st.button("✏️ Modificar respuesta", use_container_width=True):
+                    st.session_state.guardado = False
+                    st.session_state.paso = 1
+                    st.rerun()
+            with col2:
+                if st.button("➕ Nueva posición", use_container_width=True):
+                    # Mantiene camara y usuario, limpia datos de encuesta
+                    st.session_state.supabase_id    = None
+                    st.session_state.ncm_sel        = []
+                    st.session_state.paises_sel     = []
+                    st.session_state.pais_otro      = ""
+                    st.session_state.matriz_interes = {}
+                    st.session_state.negs_sel       = {}
+                    st.session_state.neg_otro       = ""
+                    st.session_state.comentario     = ""
+                    st.session_state.barreras       = {}
+                    st.session_state.guardado       = False
+                    st.session_state.paso           = 1
+                    ncms_camara = camaras_df[camaras_df["NbreCamara"] == camara]["PartidaNCM"].tolist()
+                    st.session_state.ncm_sel = []
+                    for cod in ncms_camara:
+                        st.session_state[f"ck_{cod}"] = False
+                    st.rerun()
+        else:
+            col1, col2, col3 = st.columns([1,1,1])
+            with col1:
+                if st.button("← Volver", use_container_width=True): st.session_state.paso = 2; st.rerun()
+            with col3:
+                if st.button("✅ Guardar", type="primary", use_container_width=True):
+                    registro = {
+                        "fecha_ingreso":      datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "camara":             camara,
+                        "nombre":             st.session_state.nombre,
+                        "cargo":              st.session_state.cargo,
+                        "email":              st.session_state.email,
+                        "cantidad_ncm":       len(st.session_state.ncm_sel),
+                        "ncm_seleccionados":  json.dumps(sorted(st.session_state.ncm_sel)),
+                        "paises_interes":     json.dumps(sorted(st.session_state.paises_sel)),
+                        "pais_otro":          st.session_state.pais_otro,
+                        "matriz_interes":     json.dumps(st.session_state.matriz_interes),
+                        "negociaciones":      json.dumps(st.session_state.negs_sel),
+                        "neg_otro":           st.session_state.neg_otro,
+                        "comentario":         st.session_state.comentario,
+                        "barreras":           json.dumps(st.session_state.barreras),
+                    }
+                    try:
+                        sb = get_supabase()
+                        if st.session_state.supabase_id:
+                            sb.table("respuestas_encuesta").update(registro).eq("id", st.session_state.supabase_id).execute()
+                        else:
+                            res = sb.table("respuestas_encuesta").insert(registro).execute()
+                            st.session_state.supabase_id = res.data[0]["id"]
+                        st.session_state.guardado = True
                         st.rerun()
-                with col2:
-                    if st.button("➕ Nueva posición", use_container_width=True):
-                        # Mantiene camara y usuario, limpia datos de encuesta
-                        st.session_state.supabase_id    = None
-                        st.session_state.ncm_sel        = []
-                        st.session_state.paises_sel     = []
-                        st.session_state.pais_otro      = ""
-                        st.session_state.matriz_interes = {}
-                        st.session_state.negs_sel       = {}
-                        st.session_state.neg_otro       = ""
-                        st.session_state.comentario     = ""
-                        st.session_state.barreras       = {}
-                        st.session_state.guardado       = False
-                        st.session_state.paso           = 1
-                        ncms_camara = camaras_df[camaras_df["NbreCamara"] == camara]["PartidaNCM"].tolist()
-                        st.session_state.ncm_sel = []
-                        for cod in ncms_camara:
-                            st.session_state[f"ck_{cod}"] = False
-                        st.rerun()
-            else:
-                col1, col2, col3 = st.columns([1,1,1])
-                with col1:
-                    if st.button("← Volver", use_container_width=True): st.session_state.paso = 2; st.rerun()
-                with col3:
-                    if st.button("✅ Guardar", type="primary", use_container_width=True):
-                        registro = {
-                            "fecha_ingreso":      datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            "camara":             camara,
-                            "nombre":             st.session_state.nombre,
-                            "cargo":              st.session_state.cargo,
-                            "email":              st.session_state.email,
-                            "cantidad_ncm":       len(st.session_state.ncm_sel),
-                            "ncm_seleccionados":  json.dumps(sorted(st.session_state.ncm_sel)),
-                            "paises_interes":     json.dumps(sorted(st.session_state.paises_sel)),
-                            "pais_otro":          st.session_state.pais_otro,
-                            "matriz_interes":     json.dumps(st.session_state.matriz_interes),
-                            "negociaciones":      json.dumps(st.session_state.negs_sel),
-                            "neg_otro":           st.session_state.neg_otro,
-                            "comentario":         st.session_state.comentario,
-                            "barreras":           json.dumps(st.session_state.barreras),
-                        }
-                        try:
-                            sb = get_supabase()
-                            if st.session_state.supabase_id:
-                                sb.table("respuestas_encuesta").update(registro).eq("id", st.session_state.supabase_id).execute()
-                            else:
-                                res = sb.table("respuestas_encuesta").insert(registro).execute()
-                                st.session_state.supabase_id = res.data[0]["id"]
-                            st.session_state.guardado = True
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"❌ No se pudo guardar la respuesta: {e}")
+                    except Exception as e:
+                        st.error(f"❌ No se pudo guardar la respuesta: {e}")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SECCIÓN ACUERDOS COMERCIALES
@@ -1170,7 +1136,7 @@ elif st.session_state.seccion == "📊 Indicadores macroeconómicos":
 # ═══════════════════════════════════════════════════════════════════════════════
 # SECCIÓN CONSULTA DE COMERCIO
 # ═══════════════════════════════════════════════════════════════════════════════
-else:
+elif st.session_state.seccion == "🔍 Consulta de comercio exterior y aranceles":
     st.markdown('<hr>', unsafe_allow_html=True)
 
     pais_elegido = st.selectbox("País contraparte", options=["— Elegí un país —"] + sorted(TODOS_PAISES), key="consulta_pais")

@@ -246,6 +246,7 @@ def init():
         "ac_otro": "",
         "ac_guardado": False,
         "ac_id": None,
+        "contacto_ok": False,
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -262,7 +263,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     st.markdown("---")
 
-    if st.session_state.autenticado:
+    if st.session_state.autenticado and st.session_state.contacto_ok:
         opciones = ["📋 Interés comercial", "🤝 Acuerdos comerciales", "🔍 Consulta de comercio exterior y aranceles", "📊 Indicadores macroeconómicos"]
         idx = opciones.index(st.session_state.seccion) if st.session_state.seccion in opciones else 0
         seccion = st.radio("", options=opciones, index=idx, label_visibility="collapsed")
@@ -280,10 +281,39 @@ with st.sidebar:
 
 # ─── HEADER ───────────────────────────────────────────────────────────────────
 _logo_path = Path(__file__).parent / "LogoBlanco.jpg"
-_c1, _c2, _c3 = st.columns([2, 1, 2])
-with _c2:
-    st.image(str(_logo_path), use_container_width=True)
+st.markdown('<div style="text-align:center;">', unsafe_allow_html=True)
+st.image(str(_logo_path), width=140)
+st.markdown('</div>', unsafe_allow_html=True)
 st.markdown('<p style="text-align:center; color:#7a9acc; margin-top:0.2rem;">Departamento de Comercio y Negociaciones Internacionales</p>', unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PANTALLA DE CONTACTO (post-login, pre-menú)
+# ═══════════════════════════════════════════════════════════════════════════════
+if st.session_state.autenticado and not st.session_state.contacto_ok:
+    st.subheader(f"Bienvenido — {st.session_state.camara_actual}")
+    st.caption("Completá los datos del responsable para continuar.")
+    st.markdown("")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        nombre_c = st.text_input("Nombre y apellido *", value=st.session_state.nombre, placeholder="Ej: Juan García")
+        cargo_c  = st.text_input("Cargo", value=st.session_state.cargo, placeholder="Ej: Gerente de Comercio Exterior")
+    with col2:
+        email_c  = st.text_input("Email *", value=st.session_state.email, placeholder="Ej: jgarcia@camara.org.ar")
+
+    st.markdown("")
+    if st.button("Continuar →", type="primary", use_container_width=True):
+        if not nombre_c.strip():
+            st.error("Ingresá el nombre del responsable.")
+        elif not email_c.strip():
+            st.error("Ingresá el email.")
+        else:
+            st.session_state.nombre     = nombre_c.strip()
+            st.session_state.cargo      = cargo_c.strip()
+            st.session_state.email      = email_c.strip()
+            st.session_state.contacto_ok = True
+            st.rerun()
+    st.stop()
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SECCIÓN ENCUESTA
@@ -326,6 +356,7 @@ if st.session_state.seccion == "📋 Interés comercial":
                 if len(clave_ok) > 0 and clave_input == clave_ok[0]:
                     st.session_state.autenticado   = True
                     st.session_state.camara_actual = camara_sel
+                    st.session_state.contacto_ok   = False
                     st.session_state.paso          = 1
                     ncms_camara = camaras_df[camaras_df["NbreCamara"] == camara_sel]["PartidaNCM"].tolist()
                     st.session_state.ncm_sel = []

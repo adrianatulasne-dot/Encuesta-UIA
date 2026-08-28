@@ -239,6 +239,13 @@ def init():
         "comentario": "",
         "guardado": False,
         "barreras": {},
+        "ac_paso": 1,
+        "ac_ncm_sel": [],
+        "ac_sel": [],
+        "ac_matriz": {},
+        "ac_otro": "",
+        "ac_guardado": False,
+        "ac_id": None,
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -256,7 +263,7 @@ with st.sidebar:
     st.markdown("---")
 
     if st.session_state.autenticado:
-        opciones = ["📋 Interés comercial", "🔍 Consulta de comercio exterior y aranceles", "📊 Indicadores macroeconómicos"]
+        opciones = ["📋 Interés comercial", "🤝 Acuerdos comerciales", "🔍 Consulta de comercio exterior y aranceles", "📊 Indicadores macroeconómicos"]
         idx = opciones.index(st.session_state.seccion) if st.session_state.seccion in opciones else 0
         seccion = st.radio("", options=opciones, index=idx, label_visibility="collapsed")
         st.session_state.seccion = seccion
@@ -272,12 +279,11 @@ with st.sidebar:
             st.rerun()
 
 # ─── HEADER ───────────────────────────────────────────────────────────────────
-st.markdown("""
-<div style="text-align:center; margin-bottom:1rem;">
-  <h1>🇦🇷 UIA — Intereses de Internacionalización Comercial para Socios</h1>
-  <p style="color:#7a9acc;">Departamento de Comercio y Negociaciones Internacionales</p>
-</div>
-""", unsafe_allow_html=True)
+_logo_path = Path(__file__).parent / "LogoBlanco.jpg"
+_c1, _c2, _c3 = st.columns([1, 2, 1])
+with _c2:
+    st.image(str(_logo_path), use_container_width=True)
+st.markdown('<p style="text-align:center; color:#7a9acc; margin-top:0.2rem;">Departamento de Comercio y Negociaciones Internacionales</p>', unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SECCIÓN ENCUESTA
@@ -548,59 +554,11 @@ if st.session_state.seccion == "📋 Interés comercial":
                     else:
                         st.session_state.paises_sel = paises_lista
                         st.session_state.pais_otro  = pais_otro
-                        st.session_state.paso = 3; st.rerun()
+                        st.session_state.paso = 5; st.rerun()
 
-        # ── PASO 3 — ACUERDOS Y NEGOCIACIONES ────────────────────────────────
+        # paso 3 movido al menú Acuerdos comerciales
         elif paso == 3:
-            st.subheader("Acuerdos y negociaciones")
-            st.caption("Seleccioná los acuerdos o negociaciones de interés e indicá el nivel para cada uno.")
-
-            NIVELES = ["—", "Alto", "Medio", "Bajo"]
-            negs_dict = dict(st.session_state.negs_sel) if isinstance(st.session_state.negs_sel, dict) else {}
-
-            st.markdown("#### ¿Le interesa el seguimiento de algún acuerdo o negociación en curso?")
-            st.caption("Para cada negociación seleccionada indicá el interés exportador y la sensibilidad importadora.")
-
-            # Encabezado de columnas
-            h0, h1, h2, h3 = st.columns([3, 1, 1, 1])
-            h1.markdown('<span style="color:#90caf9; font-size:0.85rem;">Seleccionar</span>', unsafe_allow_html=True)
-            h2.markdown('<span style="color:#90caf9; font-size:0.85rem;">A- Interés exportador</span>', unsafe_allow_html=True)
-            h3.markdown('<span style="color:#90caf9; font-size:0.85rem;">B- Sensibilidad importadora</span>', unsafe_allow_html=True)
-
-            negs_nuevo = {}
-            for neg in NEGOCIACIONES:
-                prev = negs_dict.get(neg, {})
-                r0, r1, r2, r3 = st.columns([3, 1, 1, 1])
-                r0.markdown(f'<span style="font-size:0.95rem;">{neg}</span>', unsafe_allow_html=True)
-                seleccionado = r1.checkbox("", value=bool(prev), key=f"neg_ck_{neg}", label_visibility="collapsed")
-                if seleccionado:
-                    exp_idx = NIVELES.index(prev.get("exportador", "—")) if prev.get("exportador") in NIVELES else 0
-                    imp_idx = NIVELES.index(prev.get("importadora", "—")) if prev.get("importadora") in NIVELES else 0
-                    exportador  = r2.selectbox("", options=NIVELES, index=exp_idx, key=f"neg_exp_{neg}", label_visibility="collapsed")
-                    importadora = r3.selectbox("", options=NIVELES, index=imp_idx, key=f"neg_imp_{neg}", label_visibility="collapsed")
-                    negs_nuevo[neg] = {"exportador": exportador, "importadora": importadora}
-
-            st.markdown("")
-            otro_neg_check = st.checkbox("Otro acuerdo / negociación", value=bool(st.session_state.neg_otro), key="neg_otro_check")
-            neg_otro = ""
-            if otro_neg_check:
-                neg_otro = st.text_input("¿Cuál?", value=st.session_state.neg_otro,
-                                         placeholder="Ingresá el nombre del acuerdo o negociación")
-
-            st.markdown("---")
-            comentario = st.text_area("Comentario adicional (opcional)",
-                                      value=st.session_state.comentario, height=90,
-                                      placeholder="Oportunidades, sensibilidades u otros comentarios...")
-
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("← Volver", use_container_width=True): st.session_state.paso = 2; st.rerun()
-            with col2:
-                if st.button("Siguiente →", type="primary", use_container_width=True):
-                    st.session_state.negs_sel   = negs_nuevo
-                    st.session_state.neg_otro   = neg_otro
-                    st.session_state.comentario = comentario
-                    st.session_state.paso = 5; st.rerun()
+            st.session_state.paso = 5; st.rerun()
 
         # ── PASO 5 — BARRERAS AL COMERCIO ────────────────────────────────────
         elif paso == 5:
@@ -735,7 +693,7 @@ if st.session_state.seccion == "📋 Interés comercial":
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("← Volver", use_container_width=True):
-                    st.session_state.paso = 3; st.rerun()
+                    st.session_state.paso = 2; st.rerun()
             with col2:
                 if st.button("Ver resumen →", type="primary", use_container_width=True):
                     st.session_state.barreras = {
@@ -903,7 +861,177 @@ if st.session_state.seccion == "📋 Interés comercial":
                             st.error(f"❌ No se pudo guardar la respuesta: {e}")
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# SECCIÓN CONSULTA
+# SECCIÓN ACUERDOS COMERCIALES
+# ═══════════════════════════════════════════════════════════════════════════════
+elif st.session_state.seccion == "🤝 Acuerdos comerciales":
+    if not st.session_state.autenticado:
+        st.warning("Iniciá sesión para acceder.")
+        st.stop()
+
+    camara = st.session_state.camara_actual
+    ncms_camara_df = camaras_df[camaras_df["NbreCamara"] == camara]
+    ncms_camara_todos = ncms_camara_df["PartidaNCM"].tolist()
+
+    ac_paso = st.session_state.ac_paso
+    NIVELES_AC = ["—", "Alto", "Medio", "Bajo"]
+
+    st.markdown('<hr>', unsafe_allow_html=True)
+
+    pasos_labels = ["1. Partidas NCM", "2. Acuerdos", "3. Intereses por partida"]
+    cols_p = st.columns(3)
+    for i, lbl in enumerate(pasos_labels):
+        color = "#1565c0" if ac_paso == i+1 else "#1a3a6b"
+        cols_p[i].markdown(f'<div style="background:{color};border-radius:8px;padding:0.4rem;text-align:center;font-size:0.85rem;">{lbl}</div>', unsafe_allow_html=True)
+    st.markdown("")
+
+    # ── AC PASO 1 — SELECCIÓN NCM ──────────────────────────────────────────────
+    if ac_paso == 1:
+        st.subheader("Paso 1 — Seleccioná las partidas NCM de interés")
+        ncm_info = ncm_df.copy()
+        ncm_info["ncm6"] = ncm_info.iloc[:,0].astype(str).str.zfill(6)
+        ncm_map = ncm_info.set_index("ncm6").iloc[:,3].to_dict() if ncm_info.shape[1] > 3 else {}
+
+        ca, cb = st.columns(2)
+        if ca.button("✅ Marcar todas", use_container_width=True):
+            for cod in ncms_camara_todos:
+                st.session_state[f"ac_ck_{cod}"] = True
+            st.rerun()
+        if cb.button("☐ Desmarcar todas", use_container_width=True):
+            for cod in ncms_camara_todos:
+                st.session_state[f"ac_ck_{cod}"] = False
+            st.rerun()
+
+        ac_ncm_nuevo = []
+        subsectores = ncms_camara_df.merge(ncm_df, left_on="PartidaNCM", right_on=ncm_df.columns[0], how="left")
+        col_sub = subsectores.columns[subsectores.columns.str.contains("ubsector", case=False)].tolist()
+        col_desc = subsectores.columns[subsectores.columns.str.contains("escr", case=False)].tolist()
+        subsector_col = col_sub[0] if col_sub else None
+        desc_col = col_desc[0] if col_desc else None
+
+        if subsector_col:
+            grupos = subsectores.groupby(subsector_col)
+            for sub, grp in grupos:
+                with st.expander(str(sub)):
+                    for _, row in grp.iterrows():
+                        cod = str(row["PartidaNCM"])
+                        desc = str(row[desc_col]) if desc_col else cod
+                        val = st.session_state.get(f"ac_ck_{cod}", cod in st.session_state.ac_ncm_sel)
+                        if st.checkbox(f"{cod} — {desc}", value=val, key=f"ac_ck_{cod}"):
+                            ac_ncm_nuevo.append(cod)
+        else:
+            for cod in ncms_camara_todos:
+                val = st.session_state.get(f"ac_ck_{cod}", cod in st.session_state.ac_ncm_sel)
+                if st.checkbox(cod, value=val, key=f"ac_ck_{cod}"):
+                    ac_ncm_nuevo.append(cod)
+
+        st.markdown(f"**{len(ac_ncm_nuevo)} partidas seleccionadas**")
+        if st.button("Continuar →", type="primary", use_container_width=True):
+            if not ac_ncm_nuevo:
+                st.error("Seleccioná al menos una partida NCM.")
+            else:
+                st.session_state.ac_ncm_sel = ac_ncm_nuevo
+                st.session_state.ac_paso = 2; st.rerun()
+
+    # ── AC PASO 2 — SELECCIÓN ACUERDOS ────────────────────────────────────────
+    elif ac_paso == 2:
+        st.subheader("Paso 2 — Seleccioná los acuerdos de interés")
+        ac_sel_nuevo = []
+        for neg in NEGOCIACIONES:
+            if st.checkbox(neg, value=neg in st.session_state.ac_sel, key=f"ac_neg_{neg}"):
+                ac_sel_nuevo.append(neg)
+        ac_otro = st.text_input("Otro acuerdo (opcional)", value=st.session_state.ac_otro, key="ac_otro_input")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("← Volver", use_container_width=True):
+                st.session_state.ac_paso = 1; st.rerun()
+        with col2:
+            if st.button("Continuar →", type="primary", use_container_width=True):
+                if not ac_sel_nuevo and not ac_otro:
+                    st.error("Seleccioná al menos un acuerdo.")
+                else:
+                    st.session_state.ac_sel  = ac_sel_nuevo
+                    st.session_state.ac_otro = ac_otro
+                    st.session_state.ac_paso = 3; st.rerun()
+
+    # ── AC PASO 3 — MATRIZ ACUERDO × NCM ──────────────────────────────────────
+    elif ac_paso == 3:
+        st.subheader("Paso 3 — Interés por partida y acuerdo")
+        st.caption("Para cada acuerdo seleccionado, indicá el nivel de interés exportador y sensibilidad importadora por partida NCM.")
+
+        ncm_info = ncm_df.copy()
+        ncm_info["ncm6"] = ncm_info.iloc[:,0].astype(str).str.zfill(6)
+        col_desc = [c for c in ncm_info.columns if "escr" in c.lower()]
+        desc_col_name = col_desc[0] if col_desc else None
+        ncm_desc_map = ncm_info.set_index("ncm6")[desc_col_name].to_dict() if desc_col_name else {}
+
+        ac_lista = st.session_state.ac_sel + ([st.session_state.ac_otro] if st.session_state.ac_otro else [])
+        matriz_ac = dict(st.session_state.ac_matriz)
+
+        for acuerdo in ac_lista:
+            with st.expander(f"📄 {acuerdo}", expanded=True):
+                h0, h1, h2 = st.columns([4, 1.5, 1.5])
+                h0.markdown('<span style="color:#90caf9; font-size:0.85rem;">Partida NCM</span>', unsafe_allow_html=True)
+                h1.markdown('<span style="color:#90caf9; font-size:0.85rem;">Interés exportador</span>', unsafe_allow_html=True)
+                h2.markdown('<span style="color:#90caf9; font-size:0.85rem;">Sensibilidad importadora</span>', unsafe_allow_html=True)
+
+                if acuerdo not in matriz_ac:
+                    matriz_ac[acuerdo] = {}
+
+                for ncm in st.session_state.ac_ncm_sel:
+                    ncm6 = str(ncm)[:6].zfill(6)
+                    desc = ncm_desc_map.get(ncm6, ncm6)
+                    label_ncm = f"{ncm6} — {desc[:50]}" if len(desc) > 50 else f"{ncm6} — {desc}"
+                    prev = matriz_ac[acuerdo].get(ncm6, {})
+                    r0, r1, r2 = st.columns([4, 1.5, 1.5])
+                    r0.markdown(f'<span style="font-size:0.85rem;">{label_ncm}</span>', unsafe_allow_html=True)
+                    exp_idx = NIVELES_AC.index(prev.get("exportador","—")) if prev.get("exportador") in NIVELES_AC else 0
+                    imp_idx = NIVELES_AC.index(prev.get("importadora","—")) if prev.get("importadora") in NIVELES_AC else 0
+                    exp_v = r1.selectbox("", options=NIVELES_AC, index=exp_idx, key=f"ac_exp_{acuerdo}_{ncm6}", label_visibility="collapsed")
+                    imp_v = r2.selectbox("", options=NIVELES_AC, index=imp_idx, key=f"ac_imp_{acuerdo}_{ncm6}", label_visibility="collapsed")
+                    matriz_ac[acuerdo][ncm6] = {"exportador": exp_v, "importadora": imp_v}
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("← Volver", use_container_width=True):
+                st.session_state.ac_matriz = matriz_ac
+                st.session_state.ac_paso = 2; st.rerun()
+        with col2:
+            if st.button("✅ Guardar acuerdos", type="primary", use_container_width=True):
+                st.session_state.ac_matriz = matriz_ac
+                registro_ac = {
+                    "fecha_ingreso": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "camara":        camara,
+                    "nombre":        st.session_state.nombre,
+                    "ncm_seleccionados": json.dumps(st.session_state.ac_ncm_sel),
+                    "negociaciones": json.dumps(st.session_state.ac_matriz),
+                    "neg_otro":      st.session_state.ac_otro,
+                }
+                try:
+                    sb = get_supabase()
+                    if st.session_state.ac_id:
+                        sb.table("acuerdos_encuesta").update(registro_ac).eq("id", st.session_state.ac_id).execute()
+                    else:
+                        res = sb.table("acuerdos_encuesta").insert(registro_ac).execute()
+                        st.session_state.ac_id = res.data[0]["id"]
+                    st.session_state.ac_guardado = True
+                    st.success("✅ Acuerdos guardados correctamente.")
+                except Exception as e:
+                    st.error(f"❌ No se pudo guardar: {e}")
+
+    if st.session_state.ac_guardado and ac_paso == 3:
+        if st.button("➕ Nueva carga de acuerdos", use_container_width=True):
+            st.session_state.ac_ncm_sel = []
+            st.session_state.ac_sel     = []
+            st.session_state.ac_matriz  = {}
+            st.session_state.ac_otro    = ""
+            st.session_state.ac_guardado = False
+            st.session_state.ac_id      = None
+            st.session_state.ac_paso    = 1
+            for cod in ncms_camara_todos:
+                st.session_state.pop(f"ac_ck_{cod}", None)
+            st.rerun()
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # SECCIÓN INDICADORES MACROECONÓMICOS
 # ═══════════════════════════════════════════════════════════════════════════════

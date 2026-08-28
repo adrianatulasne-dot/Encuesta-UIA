@@ -224,7 +224,7 @@ def fmt_usd(val):
 # ─── SESSION STATE ────────────────────────────────────────────────────────────
 def init():
     for k, v in {
-        "seccion": "📋 Interés comercial",
+        "seccion": None,
         "autenticado": False,
         "camara_actual": None,
         "paso": 1,
@@ -265,9 +265,11 @@ with st.sidebar:
 
     if st.session_state.autenticado and st.session_state.contacto_ok:
         opciones = ["📋 Interés comercial", "🤝 Acuerdos comerciales", "🔍 Consulta de comercio exterior y aranceles", "📊 Indicadores macroeconómicos"]
-        idx = opciones.index(st.session_state.seccion) if st.session_state.seccion in opciones else 0
-        seccion = st.radio("", options=opciones, index=idx, label_visibility="collapsed")
-        st.session_state.seccion = seccion
+        for op in opciones:
+            if st.button(op, use_container_width=True, key=f"menu_{op}",
+                         type="primary" if st.session_state.seccion == op else "secondary"):
+                st.session_state.seccion = op
+                st.rerun()
     else:
         st.markdown('<p style="color:#7a9acc; font-size:0.9rem;">Iniciá sesión para acceder a las secciones.</p>', unsafe_allow_html=True)
 
@@ -313,6 +315,15 @@ if st.session_state.autenticado and not st.session_state.contacto_ok:
             st.session_state.email      = email_c.strip()
             st.session_state.contacto_ok = True
             st.rerun()
+    st.stop()
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PANTALLA DE BIENVENIDA (post-contacto, sin sección elegida)
+# ═══════════════════════════════════════════════════════════════════════════════
+if st.session_state.autenticado and st.session_state.contacto_ok and st.session_state.seccion is None:
+    st.markdown(f"### Bienvenido/a, {st.session_state.nombre}")
+    st.markdown(f'<p style="color:#7a9acc;">Cámara: <strong>{st.session_state.camara_actual}</strong></p>', unsafe_allow_html=True)
+    st.markdown("Seleccioná una sección del menú lateral para comenzar.")
     st.stop()
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -419,18 +430,6 @@ if st.session_state.seccion == "📋 Interés comercial":
               <span style="color:#ffffff; font-size:0.95rem;">⚠️ Antes de completar el formulario, realizá la <strong>Consulta de Comercio Exterior y Aranceles</strong> e <strong>Indicadores Macroeconómicos</strong>.</span>
             </div>
             """, unsafe_allow_html=True)
-            st.subheader("Datos de contacto")
-            col_i1, col_i2 = st.columns(2)
-            with col_i1:
-                nombre_v = st.text_input("Nombre completo *", value=st.session_state.nombre, placeholder="Ej: Juan Pérez", key="inp_nombre")
-                cargo_v  = st.text_input("Cargo (opcional)", value=st.session_state.cargo, key="inp_cargo")
-            with col_i2:
-                email_v  = st.text_input("Email (opcional)", value=st.session_state.email, key="inp_email")
-            st.session_state.nombre = nombre_v.strip()
-            st.session_state.cargo  = cargo_v.strip()
-            st.session_state.email  = email_v.strip()
-
-            st.markdown("---")
             st.subheader("Subpartidas arancelarias (NCM)")
             st.caption(f"Cámara: **{camara}** | {len(ncms_camara_todos)} subpartidas asignadas — marcá las que son de tu interés.")
 
@@ -501,9 +500,7 @@ if st.session_state.seccion == "📋 Interés comercial":
             st.markdown(f'<div class="card"><strong style="color:#90caf9">{len(st.session_state.ncm_sel)}</strong> subpartidas seleccionadas — esta selección refleja interés comercial y no impacta en el seguimiento de acuerdos o negociaciones.</div>', unsafe_allow_html=True)
 
             if st.button("Continuar →", type="primary", use_container_width=True):
-                if not st.session_state.nombre:
-                    st.error("Ingresá tu nombre para continuar.")
-                elif not st.session_state.ncm_sel:
+                if not st.session_state.ncm_sel:
                     st.error("Seleccioná al menos una subpartida NCM.")
                 else:
                     st.session_state.paso = 2; st.rerun()

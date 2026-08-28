@@ -280,7 +280,7 @@ with st.sidebar:
 
 # ─── HEADER ───────────────────────────────────────────────────────────────────
 _logo_path = Path(__file__).parent / "LogoBlanco.jpg"
-_c1, _c2, _c3 = st.columns([1, 2, 1])
+_c1, _c2, _c3 = st.columns([2, 1, 2])
 with _c2:
     st.image(str(_logo_path), use_container_width=True)
 st.markdown('<p style="text-align:center; color:#7a9acc; margin-top:0.2rem;">Departamento de Comercio y Negociaciones Internacionales</p>', unsafe_allow_html=True)
@@ -554,7 +554,7 @@ if st.session_state.seccion == "📋 Interés comercial":
                     else:
                         st.session_state.paises_sel = paises_lista
                         st.session_state.pais_otro  = pais_otro
-                        st.session_state.paso = 5; st.rerun()
+                        st.session_state.paso = 4; st.rerun()
 
         # paso 3 movido al menú Acuerdos comerciales
         elif paso == 3:
@@ -829,7 +829,7 @@ if st.session_state.seccion == "📋 Interés comercial":
             else:
                 col1, col2, col3 = st.columns([1,1,1])
                 with col1:
-                    if st.button("← Volver", use_container_width=True): st.session_state.paso = 5; st.rerun()
+                    if st.button("← Volver", use_container_width=True): st.session_state.paso = 2; st.rerun()
                 with col3:
                     if st.button("✅ Guardar", type="primary", use_container_width=True):
                         registro = {
@@ -877,8 +877,8 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
 
     st.markdown('<hr>', unsafe_allow_html=True)
 
-    pasos_labels = ["1. Partidas NCM", "2. Acuerdos", "3. Intereses por partida"]
-    cols_p = st.columns(3)
+    pasos_labels = ["1. Partidas NCM", "2. Acuerdos", "3. Intereses por partida", "4. Barreras"]
+    cols_p = st.columns(4)
     for i, lbl in enumerate(pasos_labels):
         color = "#1565c0" if ac_paso == i+1 else "#1a3a6b"
         cols_p[i].markdown(f'<div style="background:{color};border-radius:8px;padding:0.4rem;text-align:center;font-size:0.85rem;">{lbl}</div>', unsafe_allow_html=True)
@@ -997,15 +997,80 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
                 st.session_state.ac_matriz = matriz_ac
                 st.session_state.ac_paso = 2; st.rerun()
         with col2:
-            if st.button("✅ Guardar acuerdos", type="primary", use_container_width=True):
+            if st.button("Siguiente →", type="primary", use_container_width=True):
                 st.session_state.ac_matriz = matriz_ac
+                st.session_state.ac_paso = 4; st.rerun()
+
+    # ── AC PASO 4 — BARRERAS AL COMERCIO ──────────────────────────────────────
+    elif ac_paso == 4:
+        st.subheader("Paso 4 — Barreras al comercio (opcional)")
+        st.caption("Esta sección relevará información sobre obstáculos regulatorios y otras disciplinas comerciales.")
+
+        b = st.session_state.barreras
+
+        st.markdown("#### 📋 Reglas de Origen")
+        origen_info = st.text_area("Información relevante sobre Reglas de Origen", value=b.get("origen_info",""), height=80, key="ac_b_origen_info")
+        origen_reos_mercosur = st.radio("¿Pueden adoptarse los mismos REOs negociados en Mercosur (ACE-18)?", options=["—","Sí","No"], index=["—","Sí","No"].index(b.get("origen_reos_mercosur","—")), horizontal=True, key="ac_b_origen_mercosur")
+        origen_reos_ue = st.radio("¿Pueden adoptarse los mismos REOs negociados en el acuerdo Mercosur-Unión Europea?", options=["—","Sí","No"], index=["—","Sí","No"].index(b.get("origen_reos_ue","—")), horizontal=True, key="ac_b_origen_ue")
+
+        st.markdown("---")
+        st.markdown("#### 🔧 Barreras Técnicas al Comercio (TBT)")
+        TBT_OBS = ["Falta de transparencia en requisitos técnicos o procedimientos de evaluación de la conformidad","Dificultades de participación en el proceso de elaboración de reglamentos","Reglamentos técnicos divergentes de normas internacionales relevantes (ISO/IEC, etc.)","Requisitos técnicos excesivamente restrictivos o prescriptivos","No reconocimiento de equivalencia de reglamentos técnicos","Duplicidad de ensayos, inspecciones o certificaciones","Procedimientos de evaluación de la conformidad más onerosos de lo necesario","Demoras o incertidumbre en procesos de registro/aprobación (plazos indeterminados)","No reconocimiento de resultados de procedimientos de evaluación de la conformidad","Exigencias impuestas por agentes privados (importadores, distribuidores, retail)"]
+        tbt_tiene = st.radio("¿Identificás cuestiones regulatorias en TBT que impacten negativamente la negociación?", options=["—","Sí","No"], index=["—","Sí","No"].index(b.get("tbt_tiene","—")), horizontal=True, key="ac_b_tbt_tiene")
+        tbt_obstaculos, tbt_otro, tbt_caso = [], "", ""
+        if tbt_tiene == "Sí":
+            st.markdown("**Tipos de obstáculos** (marcá todos los que apliquen):")
+            prev_obs = b.get("tbt_obstaculos",[])
+            for i, obs in enumerate(TBT_OBS):
+                if st.checkbox(obs, value=obs in prev_obs, key=f"ac_tbt_{i}"): tbt_obstaculos.append(obs)
+            tbt_otro = st.text_input("Otros (especificá)", value=b.get("tbt_otro",""), key="ac_b_tbt_otro")
+            tbt_caso = st.text_area("Caso concreto (sector, NCM, normativa, impacto estimado):", value=b.get("tbt_caso",""), height=90, key="ac_b_tbt_caso")
+
+        st.markdown("---")
+        st.markdown("#### 🌱 Medidas Sanitarias y Fitosanitarias (SPS)")
+        SPS_OBS = ["Falta de transparencia en requisitos sanitarios/fitosanitarios o procedimientos de certificación/inspección","Dificultades de participación en el proceso de elaboración de medidas SPS","Divergencia con normas internacionales relevantes (Codex, WOAH, IPPC)","No reconocimiento de regionalización/zonas libres o de compartimentación","No reconocimiento de equivalencia de medidas o sistemas oficiales","Exigencias de certificación/inspección duplicadas","Exigencias de certificación/inspección más onerosas de lo necesario","Metodologías de muestreo/ensayo sin base científica adecuada","Demoras o incertidumbre en procesos de autorización/aprobación (plazos indeterminados)","No aceptación de certificados electrónicos cuando están disponibles","Exigencias impuestas por agentes privados (importadores, distribuidores, retail)"]
+        sps_tiene = st.radio("¿Identificás medidas SPS que impacten negativamente la negociación?", options=["—","Sí","No"], index=["—","Sí","No"].index(b.get("sps_tiene","—")), horizontal=True, key="ac_b_sps_tiene")
+        sps_obstaculos, sps_otro, sps_caso = [], "", ""
+        if sps_tiene == "Sí":
+            st.markdown("**Tipos de obstáculos SPS** (marcá todos los que apliquen):")
+            prev_sps = b.get("sps_obstaculos",[])
+            for i, obs in enumerate(SPS_OBS):
+                if st.checkbox(obs, value=obs in prev_sps, key=f"ac_sps_{i}"): sps_obstaculos.append(obs)
+            sps_otro = st.text_input("Otros (especificá)", value=b.get("sps_otro",""), key="ac_b_sps_otro")
+            sps_caso = st.text_area("Caso concreto (sector, NCM, normativa, impacto estimado):", value=b.get("sps_caso",""), height=90, key="ac_b_sps_caso")
+
+        st.markdown("---")
+        st.markdown("#### 📌 Otras Disciplinas Comerciales")
+        DISC = ["Comercio de Servicios","Inversiones","Propiedad Intelectual","Compras Gubernamentales","Defensa Comercial","Salvaguardas bilaterales","Facilitación de Comercio y Cooperación Aduanera","Buenas Prácticas Regulatorias","Defensa de la Competencia","Solución de Controversias","Micro y Pequeñas Empresas","Comercio y Desarrollo Sostenible"]
+        prev_disc = b.get("disciplinas",[])
+        disciplinas_sel = []
+        for i, disc in enumerate(DISC):
+            if st.checkbox(disc, value=disc in prev_disc, key=f"ac_disc_{i}"): disciplinas_sel.append(disc)
+        disciplinas_comentario = st.text_area("Describí el interés ofensivo o preocupación defensiva:", value=b.get("disciplinas_comentario",""), height=90, key="ac_b_disc_com")
+
+        st.markdown("---")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("← Volver", use_container_width=True):
+                st.session_state.ac_paso = 3; st.rerun()
+        with col2:
+            if st.button("✅ Guardar", type="primary", use_container_width=True):
+                st.session_state.barreras = {
+                    "origen_info": origen_info, "origen_reos_mercosur": origen_reos_mercosur,
+                    "origen_reos_ue": origen_reos_ue, "tbt_tiene": tbt_tiene,
+                    "tbt_obstaculos": tbt_obstaculos, "tbt_otro": tbt_otro, "tbt_caso": tbt_caso,
+                    "sps_tiene": sps_tiene, "sps_obstaculos": sps_obstaculos,
+                    "sps_otro": sps_otro, "sps_caso": sps_caso,
+                    "disciplinas": disciplinas_sel, "disciplinas_comentario": disciplinas_comentario,
+                }
                 registro_ac = {
-                    "fecha_ingreso": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "camara":        camara,
-                    "nombre":        st.session_state.nombre,
+                    "fecha_ingreso":     datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "camara":            camara,
+                    "nombre":            st.session_state.nombre,
                     "ncm_seleccionados": json.dumps(st.session_state.ac_ncm_sel),
-                    "negociaciones": json.dumps(st.session_state.ac_matriz),
-                    "neg_otro":      st.session_state.ac_otro,
+                    "negociaciones":     json.dumps(st.session_state.ac_matriz),
+                    "neg_otro":          st.session_state.ac_otro,
+                    "barreras":          json.dumps(st.session_state.barreras),
                 }
                 try:
                     sb = get_supabase()
@@ -1015,11 +1080,13 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
                         res = sb.table("acuerdos_encuesta").insert(registro_ac).execute()
                         st.session_state.ac_id = res.data[0]["id"]
                     st.session_state.ac_guardado = True
-                    st.success("✅ Acuerdos guardados correctamente.")
+                    st.rerun()
                 except Exception as e:
                     st.error(f"❌ No se pudo guardar: {e}")
 
-    if st.session_state.ac_guardado and ac_paso == 3:
+    if st.session_state.ac_guardado and ac_paso == 4:
+        st.success("✅ Información guardada correctamente.")
+        if st.button("➕ Nueva carga de acuerdos", use_container_width=True):
         if st.button("➕ Nueva carga de acuerdos", use_container_width=True):
             st.session_state.ac_ncm_sel = []
             st.session_state.ac_sel     = []

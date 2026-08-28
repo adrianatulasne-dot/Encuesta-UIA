@@ -354,6 +354,10 @@ if st.session_state.seccion == "📋 Interés comercial":
             else:
                 clave_ok = claves_df[claves_df["NbreCamara"] == camara_sel]["Pass"].values
                 if len(clave_ok) > 0 and clave_input == clave_ok[0]:
+                    # Limpiar TODA la sesión anterior antes de cargar la nueva cámara
+                    for k in list(st.session_state.keys()):
+                        del st.session_state[k]
+                    init()
                     st.session_state.autenticado   = True
                     st.session_state.camara_actual = camara_sel
                     st.session_state.contacto_ok   = False

@@ -226,7 +226,11 @@ def init():
     for k, v in {
         "seccion": None,
         "autenticado": False,
-        "camara_actual": None,
+        "user_id": None,
+        "user_email": "",
+        "nombre_empresa": "",
+        "camaras_sel": [],        # cámaras que eligió la empresa
+        "camara_actual": None,    # cámara activa (primera o seleccionada)
         "paso": 1,
         "nombre": "", "cargo": "", "email": "",
         "ncm_sel": [],
@@ -247,6 +251,8 @@ def init():
         "ac_guardado": False,
         "ac_id": None,
         "contacto_ok": False,
+        "camaras_ok": False,      # ya eligió sus cámaras
+        "auth_modo": "login",     # "login" o "registro"
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -275,8 +281,13 @@ with st.sidebar:
 
     if st.session_state.autenticado:
         st.markdown("---")
-        st.markdown(f'<div style="font-size:0.85rem; color:#90caf9;">🏢 {st.session_state.camara_actual}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="font-size:0.85rem; color:#90caf9;">🏢 {st.session_state.nombre_empresa}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="font-size:0.8rem; color:#7a9acc;">{st.session_state.user_email}</div>', unsafe_allow_html=True)
         if st.button("Cerrar sesión", use_container_width=True):
+            try:
+                get_supabase().auth.sign_out()
+            except Exception:
+                pass
             for k in list(st.session_state.keys()):
                 del st.session_state[k]
             st.rerun()
@@ -289,65 +300,158 @@ st.markdown('</div>', unsafe_allow_html=True)
 st.markdown('<p style="text-align:center; color:#7a9acc; margin-top:0.2rem;">Departamento de Comercio y Negociaciones Internacionales</p>', unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# BARRERA GLOBAL: LOGIN
+# BARRERA GLOBAL: LOGIN / REGISTRO
 # ═══════════════════════════════════════════════════════════════════════════════
 if not st.session_state.autenticado:
-    st.subheader("Acceso")
-    st.caption("Seleccioná tu cámara e ingresá la clave para continuar.")
-    lista_camaras = sorted(claves_df["NbreCamara"].tolist())
-    col1, col2 = st.columns(2)
-    with col1:
-        camara_sel = st.selectbox("Cámara", options=["— Seleccioná tu cámara —"] + lista_camaras)
-    with col2:
-        clave_input = st.text_input("Clave de acceso", type="password", placeholder="Ingresá tu clave")
+    modo = st.session_state.auth_modo
+    col_t1, col_t2 = st.columns(2)
+    with col_t1:
+        if st.button("Ingresar", use_container_width=True,
+                     type="primary" if modo == "login" else "secondary"):
+            st.session_state.auth_modo = "login"; st.rerun()
+    with col_t2:
+        if st.button("Registrarme", use_container_width=True,
+                     type="primary" if modo == "registro" else "secondary"):
+            st.session_state.auth_modo = "registro"; st.rerun()
+
     st.markdown("")
-    if st.button("Ingresar →", type="primary", use_container_width=True):
-        if camara_sel == "— Seleccioná tu cámara —":
-            st.error("Seleccioná una cámara.")
-        elif not clave_input:
-            st.error("Ingresá la clave de acceso.")
-        else:
-            clave_ok = claves_df[claves_df["NbreCamara"] == camara_sel]["Pass"].values
-            if len(clave_ok) > 0 and clave_input == clave_ok[0]:
-                for k in list(st.session_state.keys()):
-                    del st.session_state[k]
-                init()
-                st.session_state.autenticado   = True
-                st.session_state.camara_actual = camara_sel
-                st.session_state.contacto_ok   = False
-                ncms_camara = camaras_df[camaras_df["NbreCamara"] == camara_sel]["PartidaNCM"].tolist()
-                for cod in ncms_camara:
-                    st.session_state[f"ck_{cod}"] = False
-                st.rerun()
+
+    if modo == "login":
+        st.subheader("Ingresá con tu cuenta")
+        email_in  = st.text_input("Email", placeholder="empresa@mail.com", key="li_email")
+        clave_in  = st.text_input("Contraseña", type="password", key="li_clave")
+        st.markdown("")
+        if st.button("Ingresar →", type="primary", use_container_width=True):
+            if not email_in or not clave_in:
+                st.error("Completá email y contraseña.")
             else:
-                st.error("Clave incorrecta. Verificá e intentá nuevamente.")
+                try:
+                    sb   = get_supabase()
+                    resp = sb.auth.sign_in_with_password({"email": email_in, "password": clave_in})
+                    uid  = resp.user.id
+                    # Cargar datos guardados
+                    contacto = sb.table("empresa_contacto").select("*").eq("id", uid).execute().data
+                    camaras  = sb.table("empresa_camaras").select("camara").eq("id", uid).execute().data
+                    for k in list(st.session_state.keys()): del st.session_state[k]
+                    init()
+                    st.session_state.autenticado   = True
+                    st.session_state.user_id       = uid
+                    st.session_state.user_email    = email_in
+                    if contacto:
+                        c = contacto[0]
+                        st.session_state.nombre_empresa = c.get("nombre_empresa", "")
+                        st.session_state.nombre         = c.get("nombre", "")
+                        st.session_state.cargo          = c.get("cargo", "")
+                        st.session_state.email          = c.get("email", "")
+                        st.session_state.contacto_ok    = True
+                    if camaras:
+                        cams = [r["camara"] for r in camaras]
+                        st.session_state.camaras_sel  = cams
+                        st.session_state.camara_actual = cams[0]
+                        st.session_state.camaras_ok   = True
+                        for cod in camaras_df[camaras_df["NbreCamara"].isin(cams)]["PartidaNCM"].tolist():
+                            st.session_state[f"ck_{cod}"] = False
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Email o contraseña incorrectos.")
+        st.markdown("")
+        st.caption("¿Olvidaste tu contraseña? Escribinos a uia@uia.org.ar")
+
+    else:
+        st.subheader("Crear cuenta nueva")
+        nombre_emp = st.text_input("Nombre de la empresa *", placeholder="Ej: Industrias García S.A.", key="rg_empresa")
+        email_rg   = st.text_input("Email *", placeholder="empresa@mail.com", key="rg_email")
+        col1, col2 = st.columns(2)
+        with col1:
+            clave_rg  = st.text_input("Contraseña *", type="password", key="rg_clave")
+        with col2:
+            clave_rg2 = st.text_input("Repetir contraseña *", type="password", key="rg_clave2")
+        st.markdown("")
+        if st.button("Registrarme →", type="primary", use_container_width=True):
+            if not nombre_emp or not email_rg or not clave_rg:
+                st.error("Completá todos los campos obligatorios.")
+            elif clave_rg != clave_rg2:
+                st.error("Las contraseñas no coinciden.")
+            elif len(clave_rg) < 6:
+                st.error("La contraseña debe tener al menos 6 caracteres.")
+            else:
+                try:
+                    sb   = get_supabase()
+                    resp = sb.auth.sign_up({"email": email_rg, "password": clave_rg})
+                    uid  = resp.user.id
+                    sb.table("empresa_contacto").insert({
+                        "id": uid, "nombre_empresa": nombre_emp.strip(),
+                        "nombre": "", "cargo": "", "email": email_rg.strip()
+                    }).execute()
+                    for k in list(st.session_state.keys()): del st.session_state[k]
+                    init()
+                    st.session_state.autenticado    = True
+                    st.session_state.user_id        = uid
+                    st.session_state.user_email     = email_rg
+                    st.session_state.nombre_empresa = nombre_emp.strip()
+                    st.session_state.email          = email_rg
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"No se pudo registrar. Es posible que ese email ya tenga cuenta.")
     st.stop()
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PANTALLA DE CONTACTO (post-login, pre-menú)
+# PANTALLA: SELECCIÓN DE CÁMARAS (solo la primera vez)
 # ═══════════════════════════════════════════════════════════════════════════════
-if st.session_state.autenticado and not st.session_state.contacto_ok:
-    st.subheader(f"Bienvenido — {st.session_state.camara_actual}")
-    st.caption("Completá los datos del responsable para continuar.")
+if st.session_state.autenticado and not st.session_state.camaras_ok:
+    st.subheader(f"Bienvenido/a, {st.session_state.nombre_empresa}")
+    st.caption("Seleccioná las cámaras a las que pertenece tu empresa.")
+    lista_camaras = sorted(claves_df["NbreCamara"].tolist())
+    camaras_elegidas = st.multiselect("Cámaras", options=lista_camaras,
+                                      default=st.session_state.camaras_sel,
+                                      placeholder="Elegí una o más cámaras")
     st.markdown("")
+    if st.button("Continuar →", type="primary", use_container_width=True):
+        if not camaras_elegidas:
+            st.error("Seleccioná al menos una cámara.")
+        else:
+            sb  = get_supabase()
+            uid = st.session_state.user_id
+            sb.table("empresa_camaras").delete().eq("id", uid).execute()
+            sb.table("empresa_camaras").insert([{"id": uid, "camara": c} for c in camaras_elegidas]).execute()
+            st.session_state.camaras_sel   = camaras_elegidas
+            st.session_state.camara_actual = camaras_elegidas[0]
+            st.session_state.camaras_ok    = True
+            ncms = camaras_df[camaras_df["NbreCamara"].isin(camaras_elegidas)]["PartidaNCM"].tolist()
+            for cod in ncms:
+                st.session_state[f"ck_{cod}"] = False
+            st.rerun()
+    st.stop()
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# PANTALLA DE CONTACTO (solo la primera vez, post-cámaras)
+# ═══════════════════════════════════════════════════════════════════════════════
+if st.session_state.autenticado and st.session_state.camaras_ok and not st.session_state.contacto_ok:
+    st.subheader("Datos del responsable")
+    st.caption("Completá los datos de quien completa el formulario.")
     col1, col2 = st.columns(2)
     with col1:
         nombre_c = st.text_input("Nombre y apellido *", value=st.session_state.nombre, placeholder="Ej: Juan García")
         cargo_c  = st.text_input("Cargo", value=st.session_state.cargo, placeholder="Ej: Gerente de Comercio Exterior")
     with col2:
-        email_c  = st.text_input("Email *", value=st.session_state.email, placeholder="Ej: jgarcia@camara.org.ar")
-
+        email_c  = st.text_input("Email de contacto *", value=st.session_state.email, placeholder="Ej: jgarcia@empresa.com")
     st.markdown("")
     if st.button("Continuar →", type="primary", use_container_width=True):
-        if not nombre_c.strip():
-            st.error("Ingresá el nombre del responsable.")
-        elif not email_c.strip():
-            st.error("Ingresá el email.")
+        if not nombre_c.strip() or not email_c.strip():
+            st.error("Nombre y email son obligatorios.")
         else:
-            st.session_state.nombre     = nombre_c.strip()
-            st.session_state.cargo      = cargo_c.strip()
-            st.session_state.email      = email_c.strip()
+            sb  = get_supabase()
+            uid = st.session_state.user_id
+            sb.table("empresa_contacto").upsert({
+                "id": uid,
+                "nombre_empresa": st.session_state.nombre_empresa,
+                "nombre": nombre_c.strip(),
+                "cargo":  cargo_c.strip(),
+                "email":  email_c.strip(),
+            }).execute()
+            st.session_state.nombre      = nombre_c.strip()
+            st.session_state.cargo       = cargo_c.strip()
+            st.session_state.email       = email_c.strip()
             st.session_state.contacto_ok = True
             st.rerun()
     st.stop()
@@ -357,7 +461,7 @@ if st.session_state.autenticado and not st.session_state.contacto_ok:
 # ═══════════════════════════════════════════════════════════════════════════════
 if st.session_state.autenticado and st.session_state.contacto_ok and st.session_state.seccion is None:
     st.markdown(f"### Bienvenido/a, {st.session_state.nombre}")
-    st.markdown(f'<p style="color:#7a9acc;">Cámara: <strong>{st.session_state.camara_actual}</strong></p>', unsafe_allow_html=True)
+    st.markdown(f'<p style="color:#7a9acc;">Empresa: <strong>{st.session_state.nombre_empresa}</strong></p>', unsafe_allow_html=True)
     st.markdown("Seleccioná una sección del menú lateral para comenzar.")
     st.stop()
 

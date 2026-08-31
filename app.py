@@ -360,6 +360,31 @@ if not st.session_state.autenticado:
                         st.session_state.cargo          = c.get("cargo", "")
                         st.session_state.email          = c.get("email", "")
                         st.session_state.contacto_ok    = True
+                    # Cargar acuerdos guardados
+                    acuerdos_prev = sb.table("empresa_acuerdos").select("*").eq("id_empresa", uid).execute().data
+                    if acuerdos_prev:
+                        ac_matriz = {}
+                        ac_sel_set = set()
+                        for r in acuerdos_prev:
+                            acuerdo = r["acuerdo"]
+                            ncm     = r["ncm"]
+                            ac_sel_set.add(acuerdo)
+                            if acuerdo not in ac_matriz:
+                                ac_matriz[acuerdo] = {}
+                            try:
+                                niveles = json.loads(r["nivel"]) if r["nivel"] else {}
+                            except Exception:
+                                niveles = {"exportador": r["nivel"], "importadora": "—"}
+                            ac_matriz[acuerdo][ncm] = niveles
+                        st.session_state.ac_matriz    = ac_matriz
+                        st.session_state.ac_sel       = [n for n in NEGOCIACIONES if n in ac_sel_set]
+                        st.session_state.ac_ncm_sel   = list({ncm for d in ac_matriz.values() for ncm in d})
+                        st.session_state.ac_guardado  = True
+                        # Barreras: tomar del primer registro
+                        try:
+                            st.session_state.barreras = json.loads(acuerdos_prev[0].get("barreras") or "{}")
+                        except Exception:
+                            pass
                     # Cargar NCMs y matriz de países guardados
                     paises_prev = sb.table("empresa_paises").select("*").eq("id_empresa", uid).execute().data
                     if paises_prev:

@@ -1177,30 +1177,26 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
                     "disciplinas": disciplinas_sel, "disciplinas_comentario": disciplinas_comentario,
                 }
                 try:
+                    import ast as _ast
                     sb  = get_supabase()
                     uid = st.session_state.user_id
-                    # Borrar y reinsertar acuerdos de esta empresa
                     sb.table("empresa_acuerdos").delete().eq("id_empresa", uid).execute()
                     rows_ac = []
-                    for (ncm, acuerdo), niveles in st.session_state.ac_matriz.items():
+                    for key, nivel in st.session_state.ac_matriz.items():
+                        try:
+                            if isinstance(key, tuple):
+                                ncm, acuerdo = key
+                            else:
+                                ncm, acuerdo = _ast.literal_eval(str(key))
+                        except Exception:
+                            continue
                         rows_ac.append({
                             "id_empresa": uid,
                             "ncm":        str(ncm)[:6],
-                            "acuerdo":    acuerdo,
-                            "nivel":      niveles if isinstance(niveles, str) else json.dumps(niveles),
+                            "acuerdo":    str(acuerdo),
+                            "nivel":      nivel if isinstance(nivel, str) else json.dumps(nivel),
                             "barreras":   json.dumps(st.session_state.barreras),
                         })
-                    # Si ac_matriz tiene claves string (por serialización)
-                    if not rows_ac:
-                        for key, nivel in st.session_state.ac_matriz.items():
-                            if isinstance(key, str) and "," in key:
-                                parts = key.strip("()' ").split("', '")
-                                if len(parts) == 2:
-                                    rows_ac.append({
-                                        "id_empresa": uid, "ncm": parts[0][:6],
-                                        "acuerdo": parts[1], "nivel": str(nivel),
-                                        "barreras": json.dumps(st.session_state.barreras),
-                                    })
                     if rows_ac:
                         sb.table("empresa_acuerdos").insert(rows_ac).execute()
                     st.session_state.ac_guardado = True

@@ -130,7 +130,7 @@ NOMBRE_MUNDO = {
     "Korea del Sur": "Korea del Sur",
 }
 
-PASOS = ["Subpartidas NCM", "Países e interés comercial", "Acuerdos y negociaciones", "Resumen"]
+PASOS = ["Subpartidas NCM", "Países e interés comercial", "Resumen"]
 
 LINKS_ARANCELES = {
     "Australia":              "https://wits.worldbank.org/tariff/trains/en/country/AUS/partner/ARG/product/all",
@@ -834,17 +834,9 @@ if st.session_state.seccion == "📋 Interés comercial":
             paises_txt = ", ".join(sorted(st.session_state.paises_sel))
             if st.session_state.pais_otro:
                 paises_txt += f", {st.session_state.pais_otro} (a incorporar)"
-            negs_d = st.session_state.negs_sel if isinstance(st.session_state.negs_sel, dict) else {}
-            if negs_d:
-                negs_txt = ", ".join([f"{k} (Expo: {v.get('exportador','—')} / Impo: {v.get('importadora','—')})" for k, v in negs_d.items()])
-            else:
-                negs_txt = "Ninguna"
-            if st.session_state.neg_otro:
-                negs_txt += f", {st.session_state.neg_otro}"
             com_h = f'<p><strong style="color:#90caf9">Comentario:</strong><br>{st.session_state.comentario}</p>' if st.session_state.comentario else ""
             st.markdown(f"""<div class="card">
               <p><strong style="color:#90caf9">Países de interés:</strong><br>{paises_txt or "Ninguno"}</p>
-              <p><strong style="color:#90caf9">Acuerdos y negociaciones:</strong><br>{negs_txt}</p>
               {com_h}
             </div>""", unsafe_allow_html=True)
 
@@ -934,29 +926,33 @@ if st.session_state.seccion == "📋 Interés comercial":
                 if st.button("← Volver", use_container_width=True): st.session_state.paso = 2; st.rerun()
             with col3:
                 if st.button("✅ Guardar", type="primary", use_container_width=True):
-                    registro = {
-                        "fecha_ingreso":      datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "camara":             camara,
-                        "nombre":             st.session_state.nombre,
-                        "cargo":              st.session_state.cargo,
-                        "email":              st.session_state.email,
-                        "cantidad_ncm":       len(st.session_state.ncm_sel),
-                        "ncm_seleccionados":  json.dumps(sorted(st.session_state.ncm_sel)),
-                        "paises_interes":     json.dumps(sorted(st.session_state.paises_sel)),
-                        "pais_otro":          st.session_state.pais_otro,
-                        "matriz_interes":     json.dumps(st.session_state.matriz_interes),
-                        "negociaciones":      json.dumps(st.session_state.negs_sel),
-                        "neg_otro":           st.session_state.neg_otro,
-                        "comentario":         st.session_state.comentario,
-                        "barreras":           json.dumps(st.session_state.barreras),
-                    }
                     try:
-                        sb = get_supabase()
-                        if st.session_state.supabase_id:
-                            sb.table("respuestas_encuesta").update(registro).eq("id", st.session_state.supabase_id).execute()
-                        else:
-                            res = sb.table("respuestas_encuesta").insert(registro).execute()
-                            st.session_state.supabase_id = res.data[0]["id"]
+                        sb  = get_supabase()
+                        uid = st.session_state.user_id
+                        # Borrar y reinsertar países de interés
+                        sb.table("empresa_paises").delete().eq("id_empresa", uid).execute()
+                        matriz = st.session_state.matriz_interes
+                        import ast
+                        rows_paises = []
+                        for key, flags in matriz.items():
+                            if not isinstance(flags, dict): continue
+                            try:    ncm, pais = ast.literal_eval(key)
+                            except: continue
+                            rows_paises.append({
+                                "id_empresa": uid, "pais": pais, "ncm": str(ncm)[:6],
+                                "exporta": bool(flags.get("exporta")),
+                                "importa": bool(flags.get("importa")),
+                                "conoce":  bool(flags.get("conoce")),
+                            })
+                        if rows_paises:
+                            sb.table("empresa_paises").insert(rows_paises).execute()
+                        # Actualizar contacto con comentario
+                        sb.table("empresa_contacto").update({
+                            "nombre_empresa": st.session_state.nombre_empresa,
+                            "nombre": st.session_state.nombre,
+                            "cargo":  st.session_state.cargo,
+                            "email":  st.session_state.email,
+                        }).eq("id", uid).execute()
                         st.session_state.guardado = True
                         st.rerun()
                     except Exception as e:

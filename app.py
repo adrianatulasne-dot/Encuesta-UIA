@@ -344,13 +344,27 @@ if not st.session_state.autenticado:
                         st.session_state.cargo          = c.get("cargo", "")
                         st.session_state.email          = c.get("email", "")
                         st.session_state.contacto_ok    = True
+                    # Cargar NCMs y matriz de países guardados
+                    paises_prev = sb.table("empresa_paises").select("*").eq("id_empresa", uid).execute().data
+                    if paises_prev:
+                        ncms_guardados = list({r["ncm"] for r in paises_prev})
+                        st.session_state.ncm_sel = ncms_guardados
+                        matriz = {}
+                        for r in paises_prev:
+                            key = str((r["ncm"], r["pais"]))
+                            matriz[key] = {"exporta": r["exporta"], "importa": r["importa"], "conoce": r["conoce"]}
+                        st.session_state.matriz_interes = matriz
+                        paises_unicos = list({r["pais"] for r in paises_prev})
+                        st.session_state.paises_sel = paises_unicos
+                        st.session_state.guardado = True
                     if camaras:
                         cams = [r["camara"] for r in camaras]
                         st.session_state.camaras_sel  = cams
                         st.session_state.camara_actual = cams[0]
                         st.session_state.camaras_ok   = True
+                        ncms_prev = set(st.session_state.ncm_sel)
                         for cod in camaras_df[camaras_df["NbreCamara"].isin(cams)]["PartidaNCM"].tolist():
-                            st.session_state[f"ck_{cod}"] = False
+                            st.session_state[f"ck_{cod}"] = cod in ncms_prev
                     st.rerun()
                 except Exception as e:
                     st.error(f"Email o contraseña incorrectos.")
@@ -418,8 +432,9 @@ if st.session_state.autenticado and not st.session_state.camaras_ok:
             st.session_state.camara_actual = camaras_elegidas[0]
             st.session_state.camaras_ok    = True
             ncms = camaras_df[camaras_df["NbreCamara"].isin(camaras_elegidas)]["PartidaNCM"].tolist()
+            ncms_prev = set(st.session_state.ncm_sel)
             for cod in ncms:
-                st.session_state[f"ck_{cod}"] = False
+                st.session_state[f"ck_{cod}"] = cod in ncms_prev
             st.rerun()
     st.stop()
 
@@ -556,7 +571,7 @@ if st.session_state.seccion == "📋 Interés comercial":
                 sub_df = ncm_info[ncm_info["Subsector"] == sub]
                 ncms_sub = sub_df["HSUSA"].tolist()
                 marcados_sub = sum(1 for n in ncms_sub if n in ncm_marcados)
-                with st.expander(f"📂 {sub}  —  {marcados_sub}/{len(ncms_sub)} seleccionadas", expanded=True):
+                with st.expander(f"📂 {sub}  —  {marcados_sub}/{len(ncms_sub)} seleccionadas", expanded=False):
                     for _, row in sub_df.iterrows():
                         cod  = row["HSUSA"]
                         desc = row["Descripcion Partida"]
@@ -1161,22 +1176,33 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
                     "sps_otro": sps_otro, "sps_caso": sps_caso,
                     "disciplinas": disciplinas_sel, "disciplinas_comentario": disciplinas_comentario,
                 }
-                registro_ac = {
-                    "fecha_ingreso":     datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "camara":            camara,
-                    "nombre":            st.session_state.nombre,
-                    "ncm_seleccionados": json.dumps(st.session_state.ac_ncm_sel),
-                    "negociaciones":     json.dumps(st.session_state.ac_matriz),
-                    "neg_otro":          st.session_state.ac_otro,
-                    "barreras":          json.dumps(st.session_state.barreras),
-                }
                 try:
-                    sb = get_supabase()
-                    if st.session_state.ac_id:
-                        sb.table("acuerdos_encuesta").update(registro_ac).eq("id", st.session_state.ac_id).execute()
-                    else:
-                        res = sb.table("acuerdos_encuesta").insert(registro_ac).execute()
-                        st.session_state.ac_id = res.data[0]["id"]
+                    sb  = get_supabase()
+                    uid = st.session_state.user_id
+                    # Borrar y reinsertar acuerdos de esta empresa
+                    sb.table("empresa_acuerdos").delete().eq("id_empresa", uid).execute()
+                    rows_ac = []
+                    for (ncm, acuerdo), niveles in st.session_state.ac_matriz.items():
+                        rows_ac.append({
+                            "id_empresa": uid,
+                            "ncm":        str(ncm)[:6],
+                            "acuerdo":    acuerdo,
+                            "nivel":      niveles if isinstance(niveles, str) else json.dumps(niveles),
+                            "barreras":   json.dumps(st.session_state.barreras),
+                        })
+                    # Si ac_matriz tiene claves string (por serialización)
+                    if not rows_ac:
+                        for key, nivel in st.session_state.ac_matriz.items():
+                            if isinstance(key, str) and "," in key:
+                                parts = key.strip("()' ").split("', '")
+                                if len(parts) == 2:
+                                    rows_ac.append({
+                                        "id_empresa": uid, "ncm": parts[0][:6],
+                                        "acuerdo": parts[1], "nivel": str(nivel),
+                                        "barreras": json.dumps(st.session_state.barreras),
+                                    })
+                    if rows_ac:
+                        sb.table("empresa_acuerdos").insert(rows_ac).execute()
                     st.session_state.ac_guardado = True
                     st.rerun()
                 except Exception as e:

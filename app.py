@@ -114,8 +114,24 @@ TODOS_PAISES = PAISES_CPTPP + [
 NEGOCIACIONES = [
     "Unión Europea", "Estados Unidos", "EFTA", "India",
     "Canadá", "Egipto", "Israel", "Vietnam", "Indonesia",
-    "Emiratos Árabes Unidos", "Japón",
+    "Emiratos Árabes Unidos", "Japón", "Singapur", "Corea del Sur",
 ]
+
+NEGOCIACIONES_STATUS = {
+    "Unión Europea":        "Vigente (provisional)",
+    "Estados Unidos":       "Firmado, sin ratificación parlamentaria",
+    "EFTA":                 "En proceso de ratificación parlamentaria",
+    "India":                "Vigente Acuerdo de Preferencias Fijas. Diálogos para ampliación",
+    "Canadá":               "En negociación",
+    "Egipto":               "Vigente",
+    "Israel":               "Vigente",
+    "Vietnam":              "Negociaciones recientemente iniciadas",
+    "Indonesia":            "Negociaciones recientemente iniciadas",
+    "Emiratos Árabes Unidos": "En negociación",
+    "Japón":                "Negociaciones recientemente iniciadas",
+    "Singapur":             "Vigente para Brasil, Paraguay y Uruguay; próxima entrada en vigor para Argentina",
+    "Corea del Sur":        "Retomando negociaciones interrumpidas en 2021",
+}
 
 NOMBRE_MUNDO = {
     "Australia": "Australia", "Brunei": "Brunei", "Canadá": "Canada",
@@ -1050,8 +1066,14 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
         st.subheader("Paso 2 — Seleccioná los acuerdos de interés")
         ac_sel_nuevo = []
         for neg in NEGOCIACIONES:
-            if st.checkbox(neg, value=neg in st.session_state.ac_sel, key=f"ac_neg_{neg}"):
-                ac_sel_nuevo.append(neg)
+            status = NEGOCIACIONES_STATUS.get(neg, "")
+            label  = f"**Mercosur-{neg}**"
+            col_a, col_b = st.columns([1, 3])
+            with col_a:
+                if st.checkbox(f"Mercosur-{neg}", value=neg in st.session_state.ac_sel, key=f"ac_neg_{neg}"):
+                    ac_sel_nuevo.append(neg)
+            with col_b:
+                st.markdown(f'<span style="color:#7a9acc; font-size:0.85rem;">{status}</span>', unsafe_allow_html=True)
         ac_otro = st.text_input("Otro acuerdo (opcional)", value=st.session_state.ac_otro, key="ac_otro_input")
 
         col1, col2 = st.columns(2)
@@ -1177,26 +1199,22 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
                     "disciplinas": disciplinas_sel, "disciplinas_comentario": disciplinas_comentario,
                 }
                 try:
-                    import ast as _ast
                     sb  = get_supabase()
                     uid = st.session_state.user_id
                     sb.table("empresa_acuerdos").delete().eq("id_empresa", uid).execute()
                     rows_ac = []
-                    for key, nivel in st.session_state.ac_matriz.items():
-                        try:
-                            if isinstance(key, tuple):
-                                ncm, acuerdo = key
-                            else:
-                                ncm, acuerdo = _ast.literal_eval(str(key))
-                        except Exception:
+                    barreras_json = json.dumps(st.session_state.barreras)
+                    for acuerdo, ncm_dict in st.session_state.ac_matriz.items():
+                        if not isinstance(ncm_dict, dict):
                             continue
-                        rows_ac.append({
-                            "id_empresa": uid,
-                            "ncm":        str(ncm)[:6],
-                            "acuerdo":    str(acuerdo),
-                            "nivel":      nivel if isinstance(nivel, str) else json.dumps(nivel),
-                            "barreras":   json.dumps(st.session_state.barreras),
-                        })
+                        for ncm, niveles in ncm_dict.items():
+                            rows_ac.append({
+                                "id_empresa": uid,
+                                "ncm":        str(ncm)[:6],
+                                "acuerdo":    str(acuerdo),
+                                "nivel":      json.dumps(niveles) if isinstance(niveles, dict) else str(niveles),
+                                "barreras":   barreras_json,
+                            })
                     if rows_ac:
                         sb.table("empresa_acuerdos").insert(rows_ac).execute()
                     st.session_state.ac_guardado = True

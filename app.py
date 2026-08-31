@@ -286,8 +286,14 @@ with st.sidebar:
     st.markdown("---")
 
     if st.session_state.autenticado and st.session_state.contacto_ok:
-        opciones = ["📋 Interés comercial", "🤝 Acuerdos comerciales", "🔍 Consulta de comercio exterior y aranceles", "📊 Indicadores macroeconómicos"]
-        for op in opciones:
+        st.markdown('<p style="color:#90caf9; font-size:0.8rem; font-weight:700; margin:0.3rem 0 0.3rem 0.2rem; text-transform:uppercase; letter-spacing:0.05em;">Completá información</p>', unsafe_allow_html=True)
+        for op in ["📋 Interés comercial", "🤝 Acuerdos comerciales"]:
+            if st.button(op, use_container_width=True, key=f"menu_{op}",
+                         type="primary" if st.session_state.seccion == op else "secondary"):
+                st.session_state.seccion = op
+                st.rerun()
+        st.markdown('<p style="color:#90caf9; font-size:0.8rem; font-weight:700; margin:0.8rem 0 0.3rem 0.2rem; text-transform:uppercase; letter-spacing:0.05em;">Consultá información</p>', unsafe_allow_html=True)
+        for op in ["🔍 Consulta de comercio exterior y aranceles", "📊 Indicadores macroeconómicos"]:
             if st.button(op, use_container_width=True, key=f"menu_{op}",
                          type="primary" if st.session_state.seccion == op else "secondary"):
                 st.session_state.seccion = op

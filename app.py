@@ -1007,16 +1007,18 @@ if st.session_state.seccion == "📋 Interés comercial":
                         sb.table("empresa_paises").delete().eq("id_empresa", uid).execute()
                         matriz = st.session_state.matriz_interes
                         import ast
+                        fecha_p = datetime.utcnow().isoformat()
                         rows_paises = []
                         for key, flags in matriz.items():
                             if not isinstance(flags, dict): continue
                             try:    ncm, pais = ast.literal_eval(key)
                             except: continue
                             rows_paises.append({
-                                "id_empresa": uid, "pais": pais, "ncm": str(ncm)[:6],
-                                "exporta": bool(flags.get("exporta")),
-                                "importa": bool(flags.get("importa")),
-                                "conoce":  bool(flags.get("conoce")),
+                                "id_empresa":  uid, "pais": pais, "ncm": str(ncm)[:6],
+                                "exporta":     bool(flags.get("exporta")),
+                                "importa":     bool(flags.get("importa")),
+                                "conoce":      bool(flags.get("conoce")),
+                                "fecha_carga": fecha_p,
                             })
                         if rows_paises:
                             sb.table("empresa_paises").insert(rows_paises).execute()
@@ -1251,17 +1253,19 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
                     acuerdos_sesion = list(st.session_state.ac_matriz.keys())
                     for acuerdo in acuerdos_sesion:
                         sb.table("empresa_acuerdos").delete().eq("id_empresa", uid).eq("acuerdo", acuerdo).execute()
+                    fecha_ac = datetime.utcnow().isoformat()
                     rows_ac = []
                     for acuerdo, ncm_dict in st.session_state.ac_matriz.items():
                         if not isinstance(ncm_dict, dict):
                             continue
                         for ncm, niveles in ncm_dict.items():
                             rows_ac.append({
-                                "id_empresa": uid,
-                                "ncm":        str(ncm)[:6],
-                                "acuerdo":    str(acuerdo),
-                                "nivel":      json.dumps(niveles) if isinstance(niveles, dict) else str(niveles),
-                                "barreras":   barreras_json,
+                                "id_empresa":  uid,
+                                "ncm":         str(ncm)[:6],
+                                "acuerdo":     str(acuerdo),
+                                "nivel":       json.dumps(niveles) if isinstance(niveles, dict) else str(niveles),
+                                "barreras":    barreras_json,
+                                "fecha_carga": fecha_ac,
                             })
                     if rows_ac:
                         sb.table("empresa_acuerdos").insert(rows_ac).execute()
@@ -1451,8 +1455,13 @@ elif st.session_state.seccion == "📄 Descargar resumen":
     st.subheader("Descargar resumen en PDF")
     st.caption("Generá un PDF con los datos cargados de Interés comercial y Acuerdos comerciales.")
 
-    tiene_paises   = bool(st.session_state.get("guardado") and st.session_state.get("paises_sel"))
-    tiene_acuerdos = bool(st.session_state.get("ac_guardado") and st.session_state.get("ac_matriz"))
+    sb_pdf  = get_supabase()
+    uid_pdf = st.session_state.user_id
+    paises_db   = sb_pdf.table("empresa_paises").select("*").eq("id_empresa", uid_pdf).execute().data or []
+    acuerdos_db = sb_pdf.table("empresa_acuerdos").select("*").eq("id_empresa", uid_pdf).execute().data or []
+
+    tiene_paises   = bool(paises_db)
+    tiene_acuerdos = bool(acuerdos_db)
 
     if not tiene_paises and not tiene_acuerdos:
         st.info("Todavía no hay datos guardados para descargar. Completá al menos una sección primero.")
@@ -1503,31 +1512,32 @@ elif st.session_state.seccion == "📄 Descargar resumen":
             story.append(HRFlowable(width="100%", thickness=1, color=azul, spaceAfter=6))
 
             # ── SECCIÓN 1: Interés comercial ──────────────────────────────
+            # ── SECCIÓN 1: Interés comercial — desde DB ───────────────────
             if tiene_paises:
                 story.append(Paragraph("1. Interés Comercial por País y Subpartida NCM", estilo_h2))
+                # fecha de carga (tomar la más reciente del lote)
+                fechas_p = [r.get("fecha_carga","") for r in paises_db if r.get("fecha_carga")]
+                if fechas_p:
+                    fecha_p_fmt = sorted(fechas_p)[-1][:10]
+                    story.append(Paragraph(f"Última actualización: {fecha_p_fmt}", estilo_small))
                 story.append(Spacer(1, 0.2*cm))
 
-                ncm_sel_set = set(st.session_state.ncm_sel)
-                matriz      = st.session_state.matriz_interes
+                ncm_desc_map = dict(zip(ncm_df["HSUSA"], ncm_df["Descripcion Partida"]))
+                paises_unicos = sorted({r["pais"] for r in paises_db})
 
-                ncm_info_pdf = (
-                    ncm_df[ncm_df["HSUSA"].isin(ncm_sel_set)][["HSUSA","Descripcion Partida"]]
-                    .drop_duplicates("HSUSA").sort_values("HSUSA")
-                )
-                ncm_desc_map = dict(zip(ncm_info_pdf["HSUSA"], ncm_info_pdf["Descripcion Partida"]))
-
-                for pais in sorted(st.session_state.paises_sel):
+                for pais in paises_unicos:
                     story.append(Paragraph(f"País: {pais}", estilo_h3))
+                    filas_pais = [r for r in paises_db if r["pais"] == pais]
                     tabla_data = [["NCM", "Descripción", "Exporta", "Importa", "Conoce"]]
-                    for ncm in sorted(ncm_sel_set):
-                        key    = str((ncm, pais))
-                        flags  = matriz.get(key, {})
-                        exp_v  = "Sí" if flags.get("exporta") else "—"
-                        imp_v  = "Sí" if flags.get("importa") else "—"
-                        con_v  = "Sí" if flags.get("conoce")  else "—"
-                        desc   = (ncm_desc_map.get(ncm, "") or "")[:60]
-                        tabla_data.append([ncm, desc, exp_v, imp_v, con_v])
-
+                    for r in sorted(filas_pais, key=lambda x: x["ncm"]):
+                        ncm  = r["ncm"]
+                        desc = (ncm_desc_map.get(ncm, "") or "")[:60]
+                        tabla_data.append([
+                            ncm, desc,
+                            "Sí" if r.get("exporta") else "—",
+                            "Sí" if r.get("importa") else "—",
+                            "Sí" if r.get("conoce")  else "—",
+                        ])
                     col_widths = [1.6*cm, 9*cm, 1.5*cm, 1.5*cm, 1.5*cm]
                     t = Table(tabla_data, colWidths=col_widths, repeatRows=1)
                     t.setStyle(TableStyle([
@@ -1547,7 +1557,7 @@ elif st.session_state.seccion == "📄 Descargar resumen":
                     story.append(t)
                     story.append(Spacer(1, 0.4*cm))
 
-            # ── SECCIÓN 2: Acuerdos comerciales ───────────────────────────
+            # ── SECCIÓN 2: Acuerdos comerciales — desde DB ────────────────
             if tiene_acuerdos:
                 story.append(Spacer(1, 0.3*cm))
                 story.append(Paragraph("2. Acuerdos Comerciales — Interés por Partida NCM", estilo_h2))
@@ -1559,21 +1569,39 @@ elif st.session_state.seccion == "📄 Descargar resumen":
                 desc_col2 = col_d[0] if col_d else None
                 ncm_desc_map2 = ncm_info_pdf2.set_index("ncm6")[desc_col2].to_dict() if desc_col2 else {}
 
-                ac_matriz = st.session_state.ac_matriz
-                for acuerdo, ncm_dict in ac_matriz.items():
-                    if not isinstance(ncm_dict, dict): continue
+                # Agrupar filas de DB por acuerdo
+                acuerdos_agrupados = {}
+                for r in acuerdos_db:
+                    acuerdo = r["acuerdo"]
+                    if acuerdo not in acuerdos_agrupados:
+                        acuerdos_agrupados[acuerdo] = {"rows": [], "fecha": r.get("fecha_carga",""), "barreras": r.get("barreras")}
+                    acuerdos_agrupados[acuerdo]["rows"].append(r)
+                    # conservar la fecha más reciente
+                    if r.get("fecha_carga","") > acuerdos_agrupados[acuerdo]["fecha"]:
+                        acuerdos_agrupados[acuerdo]["fecha"] = r["fecha_carga"]
+
+                for acuerdo, datos in sorted(acuerdos_agrupados.items()):
                     prefijo_pdf = NEGOCIACIONES_PREFIJO.get(acuerdo, "Mercosur")
                     story.append(Paragraph(f"Acuerdo: {prefijo_pdf}-{acuerdo}", estilo_h3))
                     status = NEGOCIACIONES_STATUS.get(acuerdo, "")
-                    if status:
-                        story.append(Paragraph(f"Estado: {status}", estilo_small))
+                    fecha_ac_str = (datos["fecha"] or "")[:10]
+                    meta_parts = []
+                    if status:       meta_parts.append(f"Estado: {status}")
+                    if fecha_ac_str: meta_parts.append(f"Cargado: {fecha_ac_str}")
+                    if meta_parts:
+                        story.append(Paragraph("  |  ".join(meta_parts), estilo_small))
 
                     tabla_data2 = [["NCM", "Descripción", "Interés exportador", "Sensibilidad importadora"]]
-                    for ncm, niveles in sorted(ncm_dict.items()):
-                        desc2  = (ncm_desc_map2.get(str(ncm)[:6].zfill(6), "") or "")[:55]
-                        exp_v  = niveles.get("exportador","—") if isinstance(niveles, dict) else "—"
-                        imp_v  = niveles.get("importadora","—") if isinstance(niveles, dict) else "—"
-                        tabla_data2.append([str(ncm)[:6], desc2, exp_v, imp_v])
+                    for r in sorted(datos["rows"], key=lambda x: x["ncm"]):
+                        ncm    = str(r["ncm"])[:6].zfill(6)
+                        desc2  = (ncm_desc_map2.get(ncm, "") or "")[:55]
+                        try:
+                            niveles = json.loads(r["nivel"]) if r["nivel"] else {}
+                        except Exception:
+                            niveles = {}
+                        exp_v = niveles.get("exportador","—") if isinstance(niveles, dict) else "—"
+                        imp_v = niveles.get("importadora","—") if isinstance(niveles, dict) else "—"
+                        tabla_data2.append([ncm, desc2, exp_v, imp_v])
 
                     col_widths2 = [1.6*cm, 9.5*cm, 2.5*cm, 2.5*cm]
                     t2 = Table(tabla_data2, colWidths=col_widths2, repeatRows=1)
@@ -1594,25 +1622,28 @@ elif st.session_state.seccion == "📄 Descargar resumen":
                     story.append(t2)
                     story.append(Spacer(1, 0.4*cm))
 
-                # Barreras al comercio — resumen textual
-                b = st.session_state.get("barreras", {})
-                if b:
-                    story.append(Spacer(1, 0.2*cm))
-                    story.append(Paragraph("Barreras al Comercio", estilo_h3))
-                    if b.get("origen_info"):
-                        story.append(Paragraph(f"<b>Reglas de Origen:</b> {b['origen_info']}", estilo_body))
-                    if b.get("tbt_tiene") == "Sí":
-                        obs_str = ", ".join(b.get("tbt_obstaculos", [])) or "—"
-                        story.append(Paragraph(f"<b>TBT — Obstáculos:</b> {obs_str}", estilo_body))
-                        if b.get("tbt_caso"):
-                            story.append(Paragraph(f"<b>TBT — Caso:</b> {b['tbt_caso']}", estilo_body))
-                    if b.get("sps_tiene") == "Sí":
-                        sps_str = ", ".join(b.get("sps_obstaculos", [])) or "—"
-                        story.append(Paragraph(f"<b>SPS — Obstáculos:</b> {sps_str}", estilo_body))
-                        if b.get("sps_caso"):
-                            story.append(Paragraph(f"<b>SPS — Caso:</b> {b['sps_caso']}", estilo_body))
-                    if b.get("disciplinas"):
-                        story.append(Paragraph(f"<b>Otras disciplinas:</b> {', '.join(b['disciplinas'])}", estilo_body))
+                    # Barreras del acuerdo
+                    b_raw = datos.get("barreras")
+                    try:
+                        b = json.loads(b_raw) if isinstance(b_raw, str) else (b_raw or {})
+                    except Exception:
+                        b = {}
+                    if b:
+                        story.append(Paragraph("Barreras al Comercio", estilo_h3))
+                        if b.get("origen_info"):
+                            story.append(Paragraph(f"<b>Reglas de Origen:</b> {b['origen_info']}", estilo_body))
+                        if b.get("tbt_tiene") == "Sí":
+                            obs_str = ", ".join(b.get("tbt_obstaculos", [])) or "—"
+                            story.append(Paragraph(f"<b>TBT — Obstáculos:</b> {obs_str}", estilo_body))
+                            if b.get("tbt_caso"):
+                                story.append(Paragraph(f"<b>TBT — Caso:</b> {b['tbt_caso']}", estilo_body))
+                        if b.get("sps_tiene") == "Sí":
+                            sps_str = ", ".join(b.get("sps_obstaculos", [])) or "—"
+                            story.append(Paragraph(f"<b>SPS — Obstáculos:</b> {sps_str}", estilo_body))
+                            if b.get("sps_caso"):
+                                story.append(Paragraph(f"<b>SPS — Caso:</b> {b['sps_caso']}", estilo_body))
+                        if b.get("disciplinas"):
+                            story.append(Paragraph(f"<b>Otras disciplinas:</b> {', '.join(b['disciplinas'])}", estilo_body))
 
             story.append(Spacer(1, 0.5*cm))
             story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#999999")))

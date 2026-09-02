@@ -1246,9 +1246,12 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
                 try:
                     sb  = get_supabase()
                     uid = st.session_state.user_id
-                    sb.table("empresa_acuerdos").delete().eq("id_empresa", uid).execute()
-                    rows_ac = []
                     barreras_json = json.dumps(st.session_state.barreras)
+                    # Opción B: borrar solo los acuerdos de la sesión actual, conservar el resto
+                    acuerdos_sesion = list(st.session_state.ac_matriz.keys())
+                    for acuerdo in acuerdos_sesion:
+                        sb.table("empresa_acuerdos").delete().eq("id_empresa", uid).eq("acuerdo", acuerdo).execute()
+                    rows_ac = []
                     for acuerdo, ncm_dict in st.session_state.ac_matriz.items():
                         if not isinstance(ncm_dict, dict):
                             continue

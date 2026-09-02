@@ -293,7 +293,7 @@ with st.sidebar:
                 st.session_state.seccion = op
                 st.rerun()
         st.markdown('<p style="color:#90caf9; font-size:0.8rem; font-weight:700; margin:0.8rem 0 0.3rem 0.2rem; text-transform:uppercase; letter-spacing:0.05em;">Consultá información</p>', unsafe_allow_html=True)
-        for op in ["🔍 Consulta de comercio exterior y aranceles", "📊 Indicadores macroeconómicos"]:
+        for op in ["🔍 Consulta de comercio exterior y aranceles", "📊 Indicadores macroeconómicos", "📄 Descargar resumen"]:
             if st.button(op, use_container_width=True, key=f"menu_{op}",
                          type="primary" if st.session_state.seccion == op else "secondary"):
                 st.session_state.seccion = op
@@ -1417,3 +1417,197 @@ elif st.session_state.seccion == "🔍 Consulta de comercio exterior y aranceles
             st.markdown("---")
             st.markdown(f'<p style="color:#ffffff !important;">Para ver aranceles: <a href="{link}" target="_blank" style="color:#90caf9 !important; text-decoration:underline !important;">{link}</a></p>', unsafe_allow_html=True)
         st.markdown('<p style="color:#7a9acc !important; font-size:0.82rem;">Fuente: Elaboración propia de la UIA en base a datos INDEC, COMTRADE y WITS. Para las exportaciones argentinas, a causa del secreto estadístico, se utilizaron datos de INDEC y estimaciones estadísticas propias.</p>', unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SECCIÓN DESCARGAR RESUMEN
+# ═══════════════════════════════════════════════════════════════════════════════
+elif st.session_state.seccion == "📄 Descargar resumen":
+    import ast, io
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import cm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+
+    st.markdown('<hr>', unsafe_allow_html=True)
+    st.subheader("Descargar resumen en PDF")
+    st.caption("Generá un PDF con los datos cargados de Interés comercial y Acuerdos comerciales.")
+
+    tiene_paises   = bool(st.session_state.get("guardado") and st.session_state.get("paises_sel"))
+    tiene_acuerdos = bool(st.session_state.get("ac_guardado") and st.session_state.get("ac_matriz"))
+
+    if not tiene_paises and not tiene_acuerdos:
+        st.info("Todavía no hay datos guardados para descargar. Completá al menos una sección primero.")
+    else:
+        if st.button("Generar PDF", type="primary"):
+            buf = io.BytesIO()
+            doc = SimpleDocTemplate(
+                buf, pagesize=A4,
+                leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm
+            )
+            styles = getSampleStyleSheet()
+            azul   = colors.HexColor("#1565c0")
+            azul2  = colors.HexColor("#0a1f44")
+            gris   = colors.HexColor("#eeeeee")
+            blanco = colors.white
+
+            estilo_titulo = ParagraphStyle("titulo", parent=styles["Heading1"],
+                                           fontSize=16, textColor=blanco, alignment=TA_CENTER,
+                                           backColor=azul2, spaceAfter=4, leading=22)
+            estilo_h2 = ParagraphStyle("h2", parent=styles["Heading2"],
+                                       fontSize=13, textColor=blanco, backColor=azul,
+                                       spaceAfter=4, leading=18, leftIndent=0)
+            estilo_h3 = ParagraphStyle("h3", parent=styles["Heading3"],
+                                       fontSize=11, textColor=azul, spaceBefore=6, spaceAfter=2)
+            estilo_body = ParagraphStyle("body", parent=styles["Normal"],
+                                         fontSize=9, spaceBefore=2, spaceAfter=2)
+            estilo_small = ParagraphStyle("small", parent=styles["Normal"],
+                                          fontSize=7.5, textColor=colors.HexColor("#555555"),
+                                          spaceBefore=1, spaceAfter=1)
+
+            story = []
+
+            # ── Encabezado ────────────────────────────────────────────────
+            story.append(Paragraph("UIA — Unión Industrial Argentina", estilo_titulo))
+            story.append(Paragraph("Departamento de Comercio y Negociaciones Internacionales", estilo_small))
+            story.append(Spacer(1, 0.3*cm))
+
+            fecha_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+            story.append(Paragraph(f"Empresa: <b>{st.session_state.nombre_empresa}</b>  |  Fecha: {fecha_str}", estilo_body))
+
+            contacto_items = []
+            if st.session_state.nombre: contacto_items.append(f"Responsable: {st.session_state.nombre}")
+            if st.session_state.cargo:  contacto_items.append(f"Cargo: {st.session_state.cargo}")
+            if st.session_state.email:  contacto_items.append(f"Email: {st.session_state.email}")
+            if contacto_items:
+                story.append(Paragraph("  |  ".join(contacto_items), estilo_body))
+
+            story.append(HRFlowable(width="100%", thickness=1, color=azul, spaceAfter=6))
+
+            # ── SECCIÓN 1: Interés comercial ──────────────────────────────
+            if tiene_paises:
+                story.append(Paragraph("1. Interés Comercial por País y Subpartida NCM", estilo_h2))
+                story.append(Spacer(1, 0.2*cm))
+
+                ncm_sel_set = set(st.session_state.ncm_sel)
+                matriz      = st.session_state.matriz_interes
+
+                ncm_info_pdf = (
+                    ncm_df[ncm_df["HSUSA"].isin(ncm_sel_set)][["HSUSA","Descripcion Partida"]]
+                    .drop_duplicates("HSUSA").sort_values("HSUSA")
+                )
+                ncm_desc_map = dict(zip(ncm_info_pdf["HSUSA"], ncm_info_pdf["Descripcion Partida"]))
+
+                for pais in sorted(st.session_state.paises_sel):
+                    story.append(Paragraph(f"País: {pais}", estilo_h3))
+                    tabla_data = [["NCM", "Descripción", "Exporta", "Importa", "Conoce"]]
+                    for ncm in sorted(ncm_sel_set):
+                        key    = str((ncm, pais))
+                        flags  = matriz.get(key, {})
+                        exp_v  = "Sí" if flags.get("exporta") else "—"
+                        imp_v  = "Sí" if flags.get("importa") else "—"
+                        con_v  = "Sí" if flags.get("conoce")  else "—"
+                        desc   = (ncm_desc_map.get(ncm, "") or "")[:60]
+                        tabla_data.append([ncm, desc, exp_v, imp_v, con_v])
+
+                    col_widths = [1.6*cm, 9*cm, 1.5*cm, 1.5*cm, 1.5*cm]
+                    t = Table(tabla_data, colWidths=col_widths, repeatRows=1)
+                    t.setStyle(TableStyle([
+                        ("BACKGROUND",    (0,0), (-1,0), azul),
+                        ("TEXTCOLOR",     (0,0), (-1,0), blanco),
+                        ("FONTSIZE",      (0,0), (-1,0), 8),
+                        ("FONTSIZE",      (0,1), (-1,-1), 7.5),
+                        ("ROWBACKGROUNDS",(0,1), (-1,-1), [blanco, gris]),
+                        ("GRID",          (0,0), (-1,-1), 0.3, colors.HexColor("#cccccc")),
+                        ("ALIGN",         (2,0), (-1,-1), "CENTER"),
+                        ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+                        ("LEFTPADDING",   (0,0), (-1,-1), 4),
+                        ("RIGHTPADDING",  (0,0), (-1,-1), 4),
+                        ("TOPPADDING",    (0,0), (-1,-1), 3),
+                        ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+                    ]))
+                    story.append(t)
+                    story.append(Spacer(1, 0.4*cm))
+
+            # ── SECCIÓN 2: Acuerdos comerciales ───────────────────────────
+            if tiene_acuerdos:
+                story.append(Spacer(1, 0.3*cm))
+                story.append(Paragraph("2. Acuerdos Comerciales — Interés por Partida NCM", estilo_h2))
+                story.append(Spacer(1, 0.2*cm))
+
+                ncm_info_pdf2 = ncm_df.copy()
+                ncm_info_pdf2["ncm6"] = ncm_info_pdf2.iloc[:,0].astype(str).str.zfill(6)
+                col_d = [c for c in ncm_info_pdf2.columns if "escr" in c.lower()]
+                desc_col2 = col_d[0] if col_d else None
+                ncm_desc_map2 = ncm_info_pdf2.set_index("ncm6")[desc_col2].to_dict() if desc_col2 else {}
+
+                ac_matriz = st.session_state.ac_matriz
+                for acuerdo, ncm_dict in ac_matriz.items():
+                    if not isinstance(ncm_dict, dict): continue
+                    story.append(Paragraph(f"Acuerdo: Mercosur-{acuerdo}", estilo_h3))
+                    status = NEGOCIACIONES_STATUS.get(acuerdo, "")
+                    if status:
+                        story.append(Paragraph(f"Estado: {status}", estilo_small))
+
+                    tabla_data2 = [["NCM", "Descripción", "Interés exportador", "Sensibilidad importadora"]]
+                    for ncm, niveles in sorted(ncm_dict.items()):
+                        desc2  = (ncm_desc_map2.get(str(ncm)[:6].zfill(6), "") or "")[:55]
+                        exp_v  = niveles.get("exportador","—") if isinstance(niveles, dict) else "—"
+                        imp_v  = niveles.get("importadora","—") if isinstance(niveles, dict) else "—"
+                        tabla_data2.append([str(ncm)[:6], desc2, exp_v, imp_v])
+
+                    col_widths2 = [1.6*cm, 9.5*cm, 2.5*cm, 2.5*cm]
+                    t2 = Table(tabla_data2, colWidths=col_widths2, repeatRows=1)
+                    t2.setStyle(TableStyle([
+                        ("BACKGROUND",    (0,0), (-1,0), azul),
+                        ("TEXTCOLOR",     (0,0), (-1,0), blanco),
+                        ("FONTSIZE",      (0,0), (-1,0), 8),
+                        ("FONTSIZE",      (0,1), (-1,-1), 7.5),
+                        ("ROWBACKGROUNDS",(0,1), (-1,-1), [blanco, gris]),
+                        ("GRID",          (0,0), (-1,-1), 0.3, colors.HexColor("#cccccc")),
+                        ("ALIGN",         (2,0), (-1,-1), "CENTER"),
+                        ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+                        ("LEFTPADDING",   (0,0), (-1,-1), 4),
+                        ("RIGHTPADDING",  (0,0), (-1,-1), 4),
+                        ("TOPPADDING",    (0,0), (-1,-1), 3),
+                        ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+                    ]))
+                    story.append(t2)
+                    story.append(Spacer(1, 0.4*cm))
+
+                # Barreras al comercio — resumen textual
+                b = st.session_state.get("barreras", {})
+                if b:
+                    story.append(Spacer(1, 0.2*cm))
+                    story.append(Paragraph("Barreras al Comercio", estilo_h3))
+                    if b.get("origen_info"):
+                        story.append(Paragraph(f"<b>Reglas de Origen:</b> {b['origen_info']}", estilo_body))
+                    if b.get("tbt_tiene") == "Sí":
+                        obs_str = ", ".join(b.get("tbt_obstaculos", [])) or "—"
+                        story.append(Paragraph(f"<b>TBT — Obstáculos:</b> {obs_str}", estilo_body))
+                        if b.get("tbt_caso"):
+                            story.append(Paragraph(f"<b>TBT — Caso:</b> {b['tbt_caso']}", estilo_body))
+                    if b.get("sps_tiene") == "Sí":
+                        sps_str = ", ".join(b.get("sps_obstaculos", [])) or "—"
+                        story.append(Paragraph(f"<b>SPS — Obstáculos:</b> {sps_str}", estilo_body))
+                        if b.get("sps_caso"):
+                            story.append(Paragraph(f"<b>SPS — Caso:</b> {b['sps_caso']}", estilo_body))
+                    if b.get("disciplinas"):
+                        story.append(Paragraph(f"<b>Otras disciplinas:</b> {', '.join(b['disciplinas'])}", estilo_body))
+
+            story.append(Spacer(1, 0.5*cm))
+            story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#999999")))
+            story.append(Paragraph("Elaboración propia de la UIA. Información confidencial.", estilo_small))
+
+            doc.build(story)
+            buf.seek(0)
+            nombre_archivo = f"Resumen_UIA_{st.session_state.nombre_empresa.replace(' ','_')}_{datetime.now().strftime('%Y%m%d')}.pdf"
+            st.download_button(
+                label="⬇️ Descargar PDF",
+                data=buf,
+                file_name=nombre_archivo,
+                mime="application/pdf",
+                type="primary",
+                use_container_width=True,
+            )

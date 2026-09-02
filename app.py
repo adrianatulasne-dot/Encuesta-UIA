@@ -524,6 +524,14 @@ if st.session_state.autenticado and st.session_state.camaras_ok and not st.sessi
 if st.session_state.autenticado and st.session_state.contacto_ok and st.session_state.seccion is None:
     st.markdown(f"### Bienvenido/a, {st.session_state.nombre}")
     st.markdown(f'<p style="color:#7a9acc;">Empresa: <strong>{st.session_state.nombre_empresa}</strong></p>', unsafe_allow_html=True)
+    st.markdown("""
+    <div style="background:#0d2a5a; border:1px solid #1565c0; border-radius:8px; padding:1rem 1.4rem; margin:1rem 0;">
+      <p style="color:#90caf9; font-weight:700; margin-bottom:0.4rem;">📌 Objetivo de la aplicación</p>
+      <p style="color:#d0e4ff; font-size:0.95rem; margin:0;">
+        El objetivo de esta aplicación es poder identificar aquellas posiciones arancelarias en las que la empresa tenga algún interés comercial en ampliar sus mercados, así como detectar intereses y sensibilidades en los acuerdos comerciales vigentes o en proceso de negociación.
+      </p>
+    </div>
+    """, unsafe_allow_html=True)
     st.markdown("Seleccioná una sección del menú lateral para comenzar.")
     st.stop()
 

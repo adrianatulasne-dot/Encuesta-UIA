@@ -117,6 +117,10 @@ NEGOCIACIONES = [
     "Emiratos Árabes Unidos", "Japón", "Singapur", "Corea del Sur",
 ]
 
+NEGOCIACIONES_PREFIJO = {
+    "Estados Unidos": "Argentina",
+}
+
 NEGOCIACIONES_STATUS = {
     "Unión Europea":        "Vigente (provisional)",
     "Estados Unidos":       "Firmado, sin ratificación parlamentaria",
@@ -1109,7 +1113,8 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
             label  = f"**Mercosur-{neg}**"
             col_a, col_b = st.columns([1, 3])
             with col_a:
-                if st.checkbox(f"Mercosur-{neg}", value=neg in st.session_state.ac_sel, key=f"ac_neg_{neg}"):
+                prefijo = NEGOCIACIONES_PREFIJO.get(neg, "Mercosur")
+                if st.checkbox(f"{prefijo}-{neg}", value=neg in st.session_state.ac_sel, key=f"ac_neg_{neg}"):
                     ac_sel_nuevo.append(neg)
             with col_b:
                 st.markdown(f'<span style="color:#7a9acc; font-size:0.85rem;">{status}</span>', unsafe_allow_html=True)
@@ -1143,7 +1148,8 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
         matriz_ac = dict(st.session_state.ac_matriz)
 
         for acuerdo in ac_lista:
-            with st.expander(f"📄 {acuerdo}", expanded=True):
+            prefijo_ac = NEGOCIACIONES_PREFIJO.get(acuerdo, "Mercosur")
+            with st.expander(f"📄 {prefijo_ac}-{acuerdo}", expanded=True):
                 h0, h1, h2 = st.columns([4, 1.5, 1.5])
                 h0.markdown('<span style="color:#90caf9; font-size:0.85rem;">Partida NCM</span>', unsafe_allow_html=True)
                 h1.markdown('<span style="color:#90caf9; font-size:0.85rem;">Interés exportador</span>', unsafe_allow_html=True)
@@ -1553,7 +1559,8 @@ elif st.session_state.seccion == "📄 Descargar resumen":
                 ac_matriz = st.session_state.ac_matriz
                 for acuerdo, ncm_dict in ac_matriz.items():
                     if not isinstance(ncm_dict, dict): continue
-                    story.append(Paragraph(f"Acuerdo: Mercosur-{acuerdo}", estilo_h3))
+                    prefijo_pdf = NEGOCIACIONES_PREFIJO.get(acuerdo, "Mercosur")
+                    story.append(Paragraph(f"Acuerdo: {prefijo_pdf}-{acuerdo}", estilo_h3))
                     status = NEGOCIACIONES_STATUS.get(acuerdo, "")
                     if status:
                         story.append(Paragraph(f"Estado: {status}", estilo_small))

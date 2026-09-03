@@ -2,7 +2,9 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+
+AR_TZ = timezone(timedelta(hours=-3))
 import json
 from supabase import create_client
 
@@ -1007,7 +1009,7 @@ if st.session_state.seccion == "📋 Interés comercial":
                         sb.table("empresa_paises").delete().eq("id_empresa", uid).execute()
                         matriz = st.session_state.matriz_interes
                         import ast
-                        fecha_p = datetime.utcnow().isoformat()
+                        fecha_p = datetime.now(AR_TZ).isoformat()
                         rows_paises = []
                         for key, flags in matriz.items():
                             if not isinstance(flags, dict): continue
@@ -1253,7 +1255,7 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
                     acuerdos_sesion = list(st.session_state.ac_matriz.keys())
                     for acuerdo in acuerdos_sesion:
                         sb.table("empresa_acuerdos").delete().eq("id_empresa", uid).eq("acuerdo", acuerdo).execute()
-                    fecha_ac = datetime.utcnow().isoformat()
+                    fecha_ac = datetime.now(AR_TZ).isoformat()
                     rows_ac = []
                     for acuerdo, ncm_dict in st.session_state.ac_matriz.items():
                         if not isinstance(ncm_dict, dict):

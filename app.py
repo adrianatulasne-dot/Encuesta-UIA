@@ -1234,6 +1234,13 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
 
         st.markdown("---")
         col1, col2 = st.columns(2)
+        reemplazar = st.checkbox(
+            "Reemplazar datos existentes de estos acuerdos",
+            value=True,
+            help="Marcado: pisa lo que ya estaba guardado para estos acuerdos. Destildado: agrega las posiciones sin borrar las anteriores (usá esta opción solo si querés sumar NCMs nuevos al mismo acuerdo)."
+        )
+
+        col1, col2 = st.columns(2)
         with col1:
             if st.button("← Volver", use_container_width=True):
                 st.session_state.ac_paso = 3; st.rerun()
@@ -1251,10 +1258,10 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
                     sb  = get_supabase()
                     uid = st.session_state.user_id
                     barreras_json = json.dumps(st.session_state.barreras)
-                    # Opción B: borrar solo los acuerdos de la sesión actual, conservar el resto
-                    acuerdos_sesion = list(st.session_state.ac_matriz.keys())
-                    for acuerdo in acuerdos_sesion:
-                        sb.table("empresa_acuerdos").delete().eq("id_empresa", uid).eq("acuerdo", acuerdo).execute()
+                    if reemplazar:
+                        acuerdos_sesion = list(st.session_state.ac_matriz.keys())
+                        for acuerdo in acuerdos_sesion:
+                            sb.table("empresa_acuerdos").delete().eq("id_empresa", uid).eq("acuerdo", acuerdo).execute()
                     fecha_ac = datetime.now(AR_TZ).isoformat()
                     rows_ac = []
                     for acuerdo, ncm_dict in st.session_state.ac_matriz.items():

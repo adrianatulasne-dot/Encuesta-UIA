@@ -997,6 +997,12 @@ if st.session_state.seccion == "📋 Interés comercial":
                         st.session_state[f"ck_{cod}"] = False
                     st.rerun()
         else:
+            reemplazar_p = st.checkbox(
+                "Reemplazar todos los datos de países guardados",
+                value=True,
+                help="Marcado: pisa todo lo guardado anteriormente. Destildado: agrega sin borrar lo anterior.",
+                key="reemplazar_paises"
+            )
             col1, col2, col3 = st.columns([1,1,1])
             with col1:
                 if st.button("← Volver", use_container_width=True): st.session_state.paso = 2; st.rerun()
@@ -1005,8 +1011,8 @@ if st.session_state.seccion == "📋 Interés comercial":
                     try:
                         sb  = get_supabase()
                         uid = st.session_state.user_id
-                        # Borrar y reinsertar países de interés
-                        sb.table("empresa_paises").delete().eq("id_empresa", uid).execute()
+                        if reemplazar_p:
+                            sb.table("empresa_paises").delete().eq("id_empresa", uid).execute()
                         matriz = st.session_state.matriz_interes
                         import ast
                         fecha_p = datetime.now(AR_TZ).isoformat()
@@ -1084,7 +1090,25 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
         subsector_col = col_sub[0] if col_sub else None
         desc_col = col_desc[0] if col_desc else None
 
-        if subsector_col:
+        busqueda_ac = st.text_input("🔍 Buscar por NCM o descripción", placeholder="Ej: 7401 o 'cobre'", key="ac_ncm_busqueda")
+        term_ac = busqueda_ac.strip().lower()
+
+        if term_ac:
+            filt = subsectores[
+                subsectores["PartidaNCM"].astype(str).str.lower().str.contains(term_ac) |
+                (subsectores[desc_col].astype(str).str.lower().str.contains(term_ac) if desc_col else False)
+            ]
+            if filt.empty:
+                st.info("Sin resultados para esa búsqueda.")
+            else:
+                st.caption(f"{len(filt)} resultado(s):")
+                for _, row in filt.iterrows():
+                    cod  = str(row["PartidaNCM"])
+                    desc = str(row[desc_col]) if desc_col else cod
+                    val  = st.session_state.get(f"ac_ck_{cod}", cod in st.session_state.ac_ncm_sel)
+                    if st.checkbox(f"{cod} — {desc}", value=val, key=f"ac_ck_{cod}"):
+                        ac_ncm_nuevo.append(cod)
+        elif subsector_col:
             grupos = subsectores.groupby(subsector_col)
             for sub, grp in grupos:
                 with st.expander(str(sub)):
@@ -1286,15 +1310,20 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
     if st.session_state.ac_guardado and ac_paso == 4:
         st.success("✅ Información guardada correctamente.")
         if st.button("➕ Nueva carga de acuerdos", use_container_width=True):
-            st.session_state.ac_ncm_sel = []
-            st.session_state.ac_sel     = []
-            st.session_state.ac_matriz  = {}
-            st.session_state.ac_otro    = ""
+            st.session_state.ac_ncm_sel  = []
+            st.session_state.ac_sel      = []
+            st.session_state.ac_matriz   = {}
+            st.session_state.ac_otro     = ""
             st.session_state.ac_guardado = False
-            st.session_state.ac_id      = None
-            st.session_state.ac_paso    = 1
+            st.session_state.ac_id       = None
+            st.session_state.ac_paso     = 1
+            st.session_state.barreras    = {}
             for cod in ncms_camara_todos:
                 st.session_state.pop(f"ac_ck_{cod}", None)
+            # Limpiar claves de checkboxes de barreras
+            for k in list(st.session_state.keys()):
+                if k.startswith(("ac_tbt_", "ac_sps_", "ac_disc_", "ac_b_")):
+                    del st.session_state[k]
             st.rerun()
 
 # ═══════════════════════════════════════════════════════════════════════════════

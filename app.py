@@ -134,6 +134,14 @@ h3 { color: #b0c4de !important; font-weight: 600; }
 .prog-todo { background:#112244; color:#5a7a9a; }
 .card { background:#112244; border:1px solid #2a4a8a; border-radius:10px; padding:1rem 1.4rem; margin-bottom:0.8rem; }
 .disclaimer { background:#0d2a5a; border:1px solid #1565c0; border-radius:8px; padding:0.6rem 1rem; margin-bottom:1rem; font-size:0.82rem; color:#90caf9 !important; }
+/* ── Ocultar toolbar de dataframes e imágenes (fullscreen, download, etc.) ── */
+[data-testid="stElementToolbar"],
+[data-testid="stElementToolbarButton"],
+[data-testid="StyledFullScreenButton"],
+button[title="View fullscreen"], button[title="Download"],
+button[aria-label="View fullscreen"], button[aria-label="Download"] {
+    display: none !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -1379,13 +1387,6 @@ elif st.session_state.seccion == "📊 Indicadores macroeconómicos":
         with open(pdf_path, "rb") as f:
             pdf_bytes = f.read()
 
-        st.download_button(
-            label=f"⬇️ Descargar ficha {pais_ficha} (PDF)",
-            data=pdf_bytes,
-            file_name=f"Indicadores_{pais_ficha}.pdf",
-            mime="application/pdf",
-        )
-
         try:
             import fitz
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -1393,7 +1394,7 @@ elif st.session_state.seccion == "📊 Indicadores macroeconómicos":
                 mat = fitz.Matrix(2, 2)
                 pix = page.get_pixmap(matrix=mat)
                 img_bytes = pix.tobytes("png")
-                st.image(img_bytes, use_container_width=True)
+                st.image(img_bytes, use_container_width=True, output_format="PNG")
             doc.close()
         except Exception as e:
             st.warning(f"No se pudo mostrar el PDF: {e}")
@@ -1447,7 +1448,7 @@ elif st.session_state.seccion == "🔍 Consulta de comercio exterior y aranceles
         sector_label = subsector_c if subsector_c != "— Todos los subsectores —" \
                        else sector_c if sector_c != "— Todos los sectores —" else "todos los sectores"
         st.markdown(f"### Argentina ↔ {pais_elegido}")
-        st.caption(f"Filtro: **{sector_label}** | **{len(ncm_set):,}** subpartidas NCM | Año Argentina: 2025 | Año {pais_elegido}: {period_pais} | Valores en millones de USD")
+        st.markdown(f'<p style="color:#ffffff; font-size:0.85rem;">Filtro: <strong>{sector_label}</strong> | <strong>{len(ncm_set):,}</strong> subpartidas NCM | Año Argentina: 2025 | Año {pais_elegido}: {period_pais} | Valores en millones de USD</p>', unsafe_allow_html=True)
 
         m1, m2, m3, m4 = st.columns(4)
         m1.metric(f"🇦🇷 Arg exporta → {pais_elegido}", fmt_mill(total_expo_arg))

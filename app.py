@@ -134,6 +134,13 @@ h3 { color: #b0c4de !important; font-weight: 600; }
 .prog-todo { background:#112244; color:#5a7a9a; }
 .card { background:#112244; border:1px solid #2a4a8a; border-radius:10px; padding:1rem 1.4rem; margin-bottom:0.8rem; }
 .disclaimer { background:#0d2a5a; border:1px solid #1565c0; border-radius:8px; padding:0.6rem 1rem; margin-bottom:1rem; font-size:0.82rem; color:#90caf9 !important; }
+/* ── Ocultar toolbar de Streamlit Cloud (Fork, GitHub, menú) ── */
+[data-testid="stToolbar"], .stAppToolbarActions,
+#MainMenu, footer, header > div:last-child,
+a[href*="github"], button[title*="Fork"], button[title*="fork"],
+[data-testid="stAppViewBlockContainer"] ~ div { visibility: hidden !important; }
+iframe[title*="streamlit"] + div { display: none !important; }
+
 /* ── Ocultar toolbar de dataframes e imágenes (fullscreen, download, etc.) ── */
 [data-testid="stElementToolbar"],
 [data-testid="stElementToolbarButton"],

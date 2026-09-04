@@ -31,6 +31,24 @@ st.markdown("""
 <style>
 .stApp { background-color: #0a1f44 !important; }
 html, body, p, span, label, div, li, [class*="css"], [data-testid] { color: #ffffff !important; }
+
+/* ── Header / toolbar de Streamlit ── */
+[data-testid="stHeader"], header[data-testid="stHeader"],
+[data-testid="stToolbar"], .stAppHeader, .stAppToolbar,
+header { background-color: #071633 !important; border-bottom: 1px solid #1a3a6b !important; }
+[data-testid="stHeader"] *, header * { color: #ffffff !important; fill: #ffffff !important; }
+[data-testid="stDecoration"] { background: #071633 !important; }
+
+/* ── Íconos del toolbar (⋮, settings, etc.) ── */
+[data-testid="stToolbarActions"] button,
+[data-testid="stMainMenuButton"] button,
+button[aria-label="Settings"], button[aria-label="Deploy"] {
+    background-color: #1a3a6b !important; color: #ffffff !important; border-radius: 6px !important;
+}
+[data-testid="stToolbarActions"] svg,
+[data-testid="stMainMenuButton"] svg { fill: #ffffff !important; color: #ffffff !important; }
+
+/* ── Sidebar toggle ── */
 [data-testid="stSidebar"] { background-color: #071633 !important; }
 [data-testid="stSidebar"] * { color: #ffffff !important; }
 [data-testid="stSidebarCollapsedControl"], button[aria-label="Open sidebar"],
@@ -40,6 +58,23 @@ button[aria-label="Close sidebar"], [data-testid="collapsedControl"] {
 [data-testid="stSidebarCollapsedControl"] svg, [data-testid="collapsedControl"] svg {
     fill: #ffffff !important; color: #ffffff !important;
 }
+
+/* ── Modales y diálogos ── */
+[data-baseweb="modal"], [data-baseweb="dialog"],
+div[role="dialog"], .stModal, [data-testid="stModal"] {
+    background-color: #0a1f44 !important;
+}
+[data-baseweb="modal"] *, [data-baseweb="dialog"] *,
+div[role="dialog"] * { color: #ffffff !important; background-color: #112244 !important; }
+
+/* ── Ícono del ojito (password) ── */
+[data-testid="stTextInputRootElement"] button,
+input[type="password"] ~ button,
+[data-baseweb="input"] button {
+    background-color: #1a3a6b !important; color: #ffffff !important;
+}
+[data-testid="stTextInputRootElement"] button svg,
+[data-baseweb="input"] button svg { fill: #ffffff !important; }
 [data-testid="stSelectbox"] > div > div, [data-testid="stSelectbox"] > div > div > div {
     background-color: #1a3a6b !important; color: #ffffff !important;
     border: 1px solid #3a6bc4 !important; border-radius: 6px !important;

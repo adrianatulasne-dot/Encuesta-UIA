@@ -990,8 +990,8 @@ if st.session_state.seccion == "📋 Interés comercial":
                         desc = ncm_df[ncm_df["HSUSA"] == ncm]["Descripcion Partida"].values
                         desc = desc[0][:55] if len(desc) > 0 else ""
 
-                        expo_a = expo_arg[(expo_arg["ncm6"] == ncm) & (expo_arg["pais"].isin(codigos))]["fob"].sum() / 1000
-                        impo_a = impo_arg[(impo_arg["ncm6"] == ncm) & (impo_arg["pais"].isin(codigos))]["cif"].sum() / 1000
+                        expo_a = expo_arg[(expo_arg["ncm6"] == ncm) & (expo_arg["pais"].isin(codigos))]["fob"].sum() / 1_000_000
+                        impo_a = impo_arg[(impo_arg["ncm6"] == ncm) & (impo_arg["pais"].isin(codigos))]["cif"].sum() / 1_000_000
 
                         if nombre_m:
                             expo_p = expo_mundo[(expo_mundo["cmdCode"] == ncm) & (expo_mundo["pais"] == nombre_m)]["fobvalue"].sum()
@@ -1005,10 +1005,10 @@ if st.session_state.seccion == "📋 Interés comercial":
                             "Exporta": expo_v,
                             "Importa": impo_v,
                             "Conoce mercado": con_v,
-                            f"Arg → {pais} (Miles de USD)": round(expo_a, 1),
-                            f"Arg ← {pais} (Miles de USD)": round(impo_a, 1),
-                            f"{pais} → Mundo (Miles de USD)": round(expo_p, 1),
-                            f"{pais} ← Mundo (Miles de USD)": round(impo_p, 1),
+                            f"Arg → {pais} (M USD)": round(expo_a, 2),
+                            f"Arg ← {pais} (M USD)": round(impo_a, 2),
+                            f"{pais} → Mundo (M USD)": round(expo_p, 2),
+                            f"{pais} ← Mundo (M USD)": round(impo_p, 2),
                         })
 
                     if filas:

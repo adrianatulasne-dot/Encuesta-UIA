@@ -324,6 +324,8 @@ def init():
         "contacto_ok": False,
         "camaras_ok": False,      # ya eligió sus cámaras
         "auth_modo": "login",     # "login" o "registro"
+        "es_camara": False,
+        "nombre_camara": "",
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -340,7 +342,13 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     st.markdown("---")
 
-    if st.session_state.autenticado and st.session_state.contacto_ok:
+    if st.session_state.autenticado and st.session_state.es_camara:
+        st.markdown('<p style="color:#90caf9; font-size:0.8rem; font-weight:700; margin:0.3rem 0 0.3rem 0.2rem; text-transform:uppercase; letter-spacing:0.05em;">Portal Cámaras</p>', unsafe_allow_html=True)
+        if st.button("🏭 Ver empresas de mi cámara", use_container_width=True, key="menu_camara",
+                     type="primary" if st.session_state.seccion == "🏭 Portal Cámaras" else "secondary"):
+            st.session_state.seccion = "🏭 Portal Cámaras"
+            st.rerun()
+    elif st.session_state.autenticado and st.session_state.contacto_ok:
         st.markdown('<p style="color:#90caf9; font-size:0.8rem; font-weight:700; margin:0.3rem 0 0.3rem 0.2rem; text-transform:uppercase; letter-spacing:0.05em;">Completá información</p>', unsafe_allow_html=True)
         for op in ["📋 Interés comercial", "🤝 Acuerdos comerciales"]:
             if st.button(op, use_container_width=True, key=f"menu_{op}",
@@ -358,7 +366,10 @@ with st.sidebar:
 
     if st.session_state.autenticado:
         st.markdown("---")
-        st.markdown(f'<div style="font-size:0.85rem; color:#90caf9;">🏢 {st.session_state.nombre_empresa}</div>', unsafe_allow_html=True)
+        if st.session_state.es_camara:
+            st.markdown(f'<div style="font-size:0.85rem; color:#90caf9;">🏛️ {st.session_state.nombre_camara}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div style="font-size:0.85rem; color:#90caf9;">🏢 {st.session_state.nombre_empresa}</div>', unsafe_allow_html=True)
         st.markdown(f'<div style="font-size:0.8rem; color:#7a9acc;">{st.session_state.user_email}</div>', unsafe_allow_html=True)
         if st.button("Cerrar sesión", use_container_width=True):
             try:
@@ -406,14 +417,20 @@ if not st.session_state.autenticado:
                     sb   = get_supabase()
                     resp = sb.auth.sign_in_with_password({"email": email_in, "password": clave_in})
                     uid  = resp.user.id
-                    # Cargar datos guardados
-                    contacto = sb.table("empresa_contacto").select("*").eq("id", uid).execute().data
-                    camaras  = sb.table("empresa_camaras").select("camara").eq("id", uid).execute().data
+                    # Verificar si es cámara
+                    camara_row = sb.table("camaras_auth").select("nombre_camara").eq("id", uid).execute().data
                     for k in list(st.session_state.keys()): del st.session_state[k]
                     init()
                     st.session_state.autenticado   = True
                     st.session_state.user_id       = uid
                     st.session_state.user_email    = email_in
+                    if camara_row:
+                        st.session_state.es_camara     = True
+                        st.session_state.nombre_camara = camara_row[0]["nombre_camara"]
+                        st.rerun()
+                    # Cargar datos guardados (solo empresas)
+                    contacto = sb.table("empresa_contacto").select("*").eq("id", uid).execute().data
+                    camaras  = sb.table("empresa_camaras").select("camara").eq("id", uid).execute().data
                     if contacto:
                         c = contacto[0]
                         st.session_state.nombre_empresa = c.get("nombre_empresa", "")
@@ -509,6 +526,123 @@ if not st.session_state.autenticado:
                     st.rerun()
                 except Exception as e:
                     st.error(f"No se pudo registrar. Es posible que ese email ya tenga cuenta.")
+    st.stop()
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PORTAL CÁMARAS
+# ═══════════════════════════════════════════════════════════════════════════════
+if st.session_state.autenticado and st.session_state.es_camara:
+    import io
+    nombre_cam = st.session_state.nombre_camara
+    st.markdown(f"### 🏛️ Portal Cámaras — {nombre_cam}")
+    st.markdown("---")
+
+    sb_cam = get_supabase()
+
+    # Empresas de esta cámara
+    cam_rows = sb_cam.table("empresa_camaras").select("id").eq("camara", nombre_cam).execute().data
+    ids_empresas = [r["id"] for r in cam_rows]
+
+    if not ids_empresas:
+        st.info("No hay empresas registradas en esta cámara todavía.")
+        st.stop()
+
+    # Datos de contacto
+    contactos_raw = []
+    for i in range(0, len(ids_empresas), 100):
+        chunk = ids_empresas[i:i+100]
+        res = sb_cam.table("empresa_contacto").select("*").in_("id", chunk).execute().data
+        contactos_raw.extend(res or [])
+
+    # Países de interés
+    paises_raw = []
+    for i in range(0, len(ids_empresas), 100):
+        chunk = ids_empresas[i:i+100]
+        res = sb_cam.table("empresa_paises").select("*").in_("id_empresa", chunk).execute().data
+        paises_raw.extend(res or [])
+
+    # Acuerdos comerciales
+    acuerdos_raw = []
+    for i in range(0, len(ids_empresas), 100):
+        chunk = ids_empresas[i:i+100]
+        res = sb_cam.table("empresa_acuerdos").select("*").in_("id_empresa", chunk).execute().data
+        acuerdos_raw.extend(res or [])
+
+    # Resumen superior
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Empresas registradas", len(ids_empresas))
+    col2.metric("Con datos de países", len({r["id_empresa"] for r in paises_raw}))
+    col3.metric("Con datos de acuerdos", len({r["id_empresa"] for r in acuerdos_raw}))
+
+    st.markdown("---")
+
+    # Tabla de empresas
+    st.markdown("#### Empresas")
+    if contactos_raw:
+        df_cont = pd.DataFrame(contactos_raw)[["id", "nombre_empresa", "nombre", "cargo", "email"]].rename(columns={
+            "id": "ID", "nombre_empresa": "Empresa", "nombre": "Responsable", "cargo": "Cargo", "email": "Email"
+        })
+        st.dataframe(df_cont, use_container_width=True, hide_index=True)
+    else:
+        st.info("Ninguna empresa completó sus datos de contacto aún.")
+
+    # Tabla países de interés
+    if paises_raw:
+        st.markdown("#### Países de interés declarados")
+        df_p = pd.DataFrame(paises_raw)
+        id_to_empresa = {r["id"]: r.get("nombre_empresa", r["id"]) for r in contactos_raw}
+        df_p["empresa"] = df_p["id_empresa"].map(id_to_empresa).fillna(df_p["id_empresa"])
+        df_paises_show = df_p[["empresa","pais","ncm","exporta","importa","conoce","fecha_carga"]].rename(columns={
+            "empresa": "Empresa", "pais": "País", "ncm": "NCM",
+            "exporta": "Exporta", "importa": "Importa", "conoce": "Conoce mercado",
+            "fecha_carga": "Fecha carga"
+        })
+        st.dataframe(df_paises_show, use_container_width=True, hide_index=True)
+
+    # Tabla acuerdos
+    if acuerdos_raw:
+        st.markdown("#### Acuerdos comerciales declarados")
+        df_a = pd.DataFrame(acuerdos_raw)
+        df_a["empresa"] = df_a["id_empresa"].map(id_to_empresa).fillna(df_a["id_empresa"])
+        # Extraer nivel exportador/importadora
+        def parse_nivel(v):
+            try:
+                d = json.loads(v) if isinstance(v, str) else (v or {})
+                return d.get("exportador","—"), d.get("importadora","—")
+            except Exception:
+                return "—","—"
+        df_a[["exportador","importadora"]] = df_a["nivel"].apply(lambda v: pd.Series(parse_nivel(v)))
+        df_ac_show = df_a[["empresa","acuerdo","ncm","exportador","importadora","fecha_carga"]].rename(columns={
+            "empresa": "Empresa", "acuerdo": "Acuerdo", "ncm": "NCM",
+            "exportador": "Interés exportador", "importadora": "Sensibilidad importadora",
+            "fecha_carga": "Fecha carga"
+        })
+        st.dataframe(df_ac_show, use_container_width=True, hide_index=True)
+
+    # Descarga Excel
+    st.markdown("---")
+    st.markdown("#### 📥 Descargar datos completos")
+
+    def generar_excel_camara():
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            if contactos_raw:
+                df_cont.to_excel(writer, sheet_name="Empresas", index=False)
+            if paises_raw:
+                df_paises_show.to_excel(writer, sheet_name="Países de interés", index=False)
+            if acuerdos_raw:
+                df_ac_show.to_excel(writer, sheet_name="Acuerdos comerciales", index=False)
+        buf.seek(0)
+        return buf.getvalue()
+
+    st.download_button(
+        label="⬇️ Descargar Excel",
+        data=generar_excel_camara(),
+        file_name=f"camara_{nombre_cam.replace(' ','_')}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        type="primary",
+        use_container_width=True,
+    )
     st.stop()
 
 # ═══════════════════════════════════════════════════════════════════════════════

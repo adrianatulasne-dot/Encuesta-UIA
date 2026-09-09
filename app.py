@@ -1266,12 +1266,23 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
                 st.session_state[f"ac_ck_{cod}"] = False
             st.rerun()
 
-        ac_ncm_nuevo = []
         subsectores = ncms_camara_df.merge(ncm_df, left_on="PartidaNCM", right_on=ncm_df.columns[0], how="left")
         col_sub = subsectores.columns[subsectores.columns.str.contains("ubsector", case=False)].tolist()
         col_desc = subsectores.columns[subsectores.columns.str.contains("escr", case=False)].tolist()
         subsector_col = col_sub[0] if col_sub else None
         desc_col = col_desc[0] if col_desc else None
+
+        # ac_ncm_sel es la fuente de verdad — los checkboxes sincronizan con ella via on_change
+        if not isinstance(st.session_state.ac_ncm_sel, list):
+            st.session_state.ac_ncm_sel = []
+
+        def _toggle_ac(cod):
+            sel = set(st.session_state.ac_ncm_sel)
+            if st.session_state.get(f"ac_ck_{cod}"):
+                sel.add(cod)
+            else:
+                sel.discard(cod)
+            st.session_state.ac_ncm_sel = list(sel)
 
         busqueda_ac = st.text_input("🔍 Buscar por NCM o descripción", placeholder="Ej: 7401 o 'cobre'", key="ac_ncm_busqueda")
         term_ac = busqueda_ac.strip().lower()
@@ -1288,33 +1299,27 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
                 for _, row in filt.iterrows():
                     cod  = str(row["PartidaNCM"])
                     desc = str(row[desc_col]) if desc_col else cod
-                    val  = st.session_state.get(f"ac_ck_{cod}", cod in st.session_state.ac_ncm_sel)
-                    if st.checkbox(f"{cod} — {desc}", value=val, key=f"ac_ck_{cod}"):
-                        ac_ncm_nuevo.append(cod)
+                    st.checkbox(f"{cod} — {desc}", value=cod in st.session_state.ac_ncm_sel,
+                                key=f"ac_ck_{cod}", on_change=_toggle_ac, args=(cod,))
         elif subsector_col:
             grupos = subsectores.groupby(subsector_col)
             for sub, grp in grupos:
                 with st.expander(str(sub)):
                     for _, row in grp.iterrows():
-                        cod = str(row["PartidaNCM"])
+                        cod  = str(row["PartidaNCM"])
                         desc = str(row[desc_col]) if desc_col else cod
-                        val = st.session_state.get(f"ac_ck_{cod}", cod in st.session_state.ac_ncm_sel)
-                        if st.checkbox(f"{cod} — {desc}", value=val, key=f"ac_ck_{cod}"):
-                            ac_ncm_nuevo.append(cod)
+                        st.checkbox(f"{cod} — {desc}", value=cod in st.session_state.ac_ncm_sel,
+                                    key=f"ac_ck_{cod}", on_change=_toggle_ac, args=(cod,))
         else:
             for cod in ncms_camara_todos:
-                val = st.session_state.get(f"ac_ck_{cod}", cod in st.session_state.ac_ncm_sel)
-                if st.checkbox(cod, value=val, key=f"ac_ck_{cod}"):
-                    ac_ncm_nuevo.append(cod)
+                st.checkbox(cod, value=cod in st.session_state.ac_ncm_sel,
+                            key=f"ac_ck_{cod}", on_change=_toggle_ac, args=(cod,))
 
-        # Leer todas las selecciones desde session_state (no solo las visibles en pantalla)
-        ac_ncm_todos_sel = [cod for cod in ncms_camara_todos if st.session_state.get(f"ac_ck_{cod}", False)]
-        st.markdown(f"**{len(ac_ncm_todos_sel)} partidas seleccionadas**")
+        st.markdown(f"**{len(st.session_state.ac_ncm_sel)} partidas seleccionadas**")
         if st.button("Continuar →", type="primary", use_container_width=True):
-            if not ac_ncm_todos_sel:
+            if not st.session_state.ac_ncm_sel:
                 st.error("Seleccioná al menos una partida NCM.")
             else:
-                st.session_state.ac_ncm_sel = ac_ncm_todos_sel
                 st.session_state.ac_paso = 2; st.rerun()
 
     # ── AC PASO 2 — SELECCIÓN ACUERDOS ────────────────────────────────────────

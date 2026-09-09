@@ -624,6 +624,40 @@ if st.session_state.autenticado and st.session_state.es_camara:
     st.markdown("#### 📥 Descargar datos completos")
 
     def generar_excel_camara():
+        # Barreras: una fila por empresa+acuerdo
+        barreras_rows = []
+        seen = set()
+        for r in acuerdos_raw:
+            key = (r["id_empresa"], r.get("acuerdo",""))
+            if key in seen or not r.get("barreras"):
+                continue
+            seen.add(key)
+            try:
+                b = json.loads(r["barreras"]) if isinstance(r["barreras"], str) else (r["barreras"] or {})
+            except Exception:
+                b = {}
+            if not any(b.values()):
+                continue
+            empresa = id_to_empresa.get(r["id_empresa"], r["id_empresa"])
+            barreras_rows.append({
+                "Empresa":                   empresa,
+                "Acuerdo":                   r.get("acuerdo",""),
+                "Fecha carga":               r.get("fecha_carga",""),
+                "Origen — info disponible":  b.get("origen_info",""),
+                "Origen — REOS Mercosur":    b.get("origen_reos_mercosur",""),
+                "Origen — REOS UE":          b.get("origen_reos_ue",""),
+                "TBT — tiene barreras":      b.get("tbt_tiene",""),
+                "TBT — obstáculos":          ", ".join(b.get("tbt_obstaculos") or []),
+                "TBT — otro":                b.get("tbt_otro",""),
+                "TBT — caso concreto":       b.get("tbt_caso",""),
+                "SPS — tiene barreras":      b.get("sps_tiene",""),
+                "SPS — obstáculos":          ", ".join(b.get("sps_obstaculos") or []),
+                "SPS — otro":                b.get("sps_otro",""),
+                "SPS — caso concreto":       b.get("sps_caso",""),
+                "Disciplinas":               ", ".join(b.get("disciplinas") or []),
+                "Disciplinas — comentario":  b.get("disciplinas_comentario",""),
+            })
+
         buf = io.BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
             if contactos_raw:
@@ -632,6 +666,8 @@ if st.session_state.autenticado and st.session_state.es_camara:
                 df_paises_show.to_excel(writer, sheet_name="Países de interés", index=False)
             if acuerdos_raw:
                 df_ac_show.to_excel(writer, sheet_name="Acuerdos comerciales", index=False)
+            if barreras_rows:
+                pd.DataFrame(barreras_rows).to_excel(writer, sheet_name="Barreras", index=False)
         buf.seek(0)
         return buf.getvalue()
 

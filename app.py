@@ -1307,12 +1307,14 @@ elif st.session_state.seccion == "🤝 Acuerdos comerciales":
                 if st.checkbox(cod, value=val, key=f"ac_ck_{cod}"):
                     ac_ncm_nuevo.append(cod)
 
-        st.markdown(f"**{len(ac_ncm_nuevo)} partidas seleccionadas**")
+        # Leer todas las selecciones desde session_state (no solo las visibles en pantalla)
+        ac_ncm_todos_sel = [cod for cod in ncms_camara_todos if st.session_state.get(f"ac_ck_{cod}", False)]
+        st.markdown(f"**{len(ac_ncm_todos_sel)} partidas seleccionadas**")
         if st.button("Continuar →", type="primary", use_container_width=True):
-            if not ac_ncm_nuevo:
+            if not ac_ncm_todos_sel:
                 st.error("Seleccioná al menos una partida NCM.")
             else:
-                st.session_state.ac_ncm_sel = ac_ncm_nuevo
+                st.session_state.ac_ncm_sel = ac_ncm_todos_sel
                 st.session_state.ac_paso = 2; st.rerun()
 
     # ── AC PASO 2 — SELECCIÓN ACUERDOS ────────────────────────────────────────

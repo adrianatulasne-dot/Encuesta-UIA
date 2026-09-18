@@ -348,6 +348,10 @@ with st.sidebar:
                      type="primary" if st.session_state.seccion == "🏭 Portal Cámaras" else "secondary"):
             st.session_state.seccion = "🏭 Portal Cámaras"
             st.rerun()
+        if st.button("📦 Ver universo arancelario de mi cámara", use_container_width=True, key="menu_arancel",
+                     type="primary" if st.session_state.seccion == "📦 Universo Arancelario" else "secondary"):
+            st.session_state.seccion = "📦 Universo Arancelario"
+            st.rerun()
     elif st.session_state.autenticado and st.session_state.contacto_ok:
         st.markdown('<p style="color:#90caf9; font-size:0.8rem; font-weight:700; margin:0.3rem 0 0.3rem 0.2rem; text-transform:uppercase; letter-spacing:0.05em;">Completá información</p>', unsafe_allow_html=True)
         for op in ["📋 Interés comercial", "🤝 Acuerdos comerciales"]:
@@ -825,6 +829,48 @@ if st.session_state.autenticado and st.session_state.es_camara:
             type="primary",
             use_container_width=True,
         )
+
+    # ── UNIVERSO ARANCELARIO ─────────────────────────────────────────────────
+    if st.session_state.seccion == "📦 Universo Arancelario":
+        st.markdown("---")
+        st.markdown(f"### 📦 Universo arancelario — {nombre_cam}")
+
+        ncms_cam = camaras_df[camaras_df["NbreCamara"] == nombre_cam]["PartidaNCM"].tolist()
+        if not ncms_cam:
+            st.info("Esta cámara no tiene subpartidas arancelarias asignadas.")
+        else:
+            df_arancel = (
+                ncm_df[ncm_df["HSUSA"].isin(ncms_cam)][["HSUSA", "Descripcion Partida"]]
+                .rename(columns={"HSUSA": "NCM (6 dígitos)", "Descripcion Partida": "Descripción"})
+                .drop_duplicates()
+                .sort_values("NCM (6 dígitos)")
+                .reset_index(drop=True)
+            )
+            # NCMs sin descripción en ncm_df
+            ncms_sin_desc = set(ncms_cam) - set(df_arancel["NCM (6 dígitos)"])
+            if ncms_sin_desc:
+                extras = pd.DataFrame({"NCM (6 dígitos)": sorted(ncms_sin_desc), "Descripción": ""})
+                df_arancel = pd.concat([df_arancel, extras], ignore_index=True).sort_values("NCM (6 dígitos)").reset_index(drop=True)
+
+            st.caption(f"{len(df_arancel)} subpartidas arancelarias asignadas a {nombre_cam}")
+            st.dataframe(df_arancel, use_container_width=True, hide_index=True)
+
+            def generar_excel_arancel():
+                buf = io.BytesIO()
+                with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+                    df_arancel.to_excel(writer, index=False, sheet_name="Universo NCM")
+                buf.seek(0)
+                return buf.getvalue()
+
+            st.download_button(
+                label="⬇️ Descargar Excel",
+                data=generar_excel_arancel(),
+                file_name=f"universo_arancelario_{nombre_cam.replace(' ','_')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                type="primary",
+                use_container_width=True,
+            )
+
     st.stop()
 
 # ═══════════════════════════════════════════════════════════════════════════════

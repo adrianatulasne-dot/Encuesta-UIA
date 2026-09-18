@@ -8,7 +8,7 @@ App Streamlit de relevamiento de intereses de internacionalización para cámara
 
 ## Para correr localmente
 ```
-cd C:\Users\atula\Downloads\encuesta_uia
+cd C:\Users\atula\Documents\UIA-Comercio-Exterior\encuesta-uia\encuesta_uia
 streamlit run app.py --server.port 8502
 ```
 
@@ -40,8 +40,9 @@ encuesta_uia/
 
 ## Fuente de datos
 - **SQL Server:** `DESKTOP-1TIKEG2\SQLEXPRESS`, base `UI` y `UI_CPTPP`
-- **Script de extracción:** `C:\Users\atula\Downloads\extraer_datos.py`
-- Para actualizar los datos: correr `extraer_datos.py`, luego copiar los parquets nuevos a `data_parquet/` y hacer push.
+- **Script de extracción:** `C:\Users\atula\Documents\UIA-Comercio-Exterior\encuesta-uia\extraer_datos.py`
+- **Script sync Supabase → SQL Server:** `C:\Users\atula\Documents\UIA-Comercio-Exterior\encuesta-uia\supabase_to_sqlserver.py`
+- Para actualizar los datos: correr `extraer_datos.py`, copiar los parquets a `data_parquet/` y hacer push.
 
 ## Módulos de la app
 
@@ -69,10 +70,8 @@ encuesta_uia/
 - Solución: `ncm6 = partidaNCM.str[:6].str.zfill(6)` — siempre filtrar con ncm6
 
 ### Unidades
-- Argentina: datos en **USD**
-- Países CPTPP: datos en **miles USD**
-- Solución temporal: se divide Argentina /1000 para presentación
-- Pendiente: normalizar en origen (en `extraer_datos.py`)
+- Argentina: datos en **USD** → se divide por 1.000.000 en app para mostrar en M USD
+- Países (CPTPP y otros): datos en **M USD** — NO dividir
 
 ### CPTPP: mapeo de nombres
 Los nombres en `expo/impo_pais_mundo.parquet` son distintos a los que se muestran:
@@ -83,7 +82,16 @@ Los nombres en `expo/impo_pais_mundo.parquet` son distintos a los que se muestra
 Cada país CPTPP tiene uno o más códigos en paisindec para filtrar expo/impo arg:
 - Ver dict `PAIS_CODINDEC` en app.py
 
-## Pendiente
-- [ ] Guardar respuestas en Supabase (ahora solo guarda en CSV local, no funciona en producción)
-- [ ] Normalizar Argentina a miles USD en `extraer_datos.py`
-- [ ] Ajustes según feedback de cámaras
+## Países disponibles
+CPTPP: Australia, Brunei, Canada, Chile, Japon, Malasia, Mexico, Nueva Zelanda, Peru, Reino Unido, Singapur, Vietnam
+Otros: Camboya, Emiratos Árabes Unidos, Filipinas, India, Indonesia, Korea del Sur, Laos, Myanmar, Tailandia
+
+## Respuestas — Supabase
+- Tabla `respuestas_encuesta` en Supabase (PostgreSQL cloud)
+- RLS habilitado con política allow_all
+- matriz_interes se guarda como dict con claves tupla string: `"('ncm', 'pais')"`
+- Para sincronizar a SQL Server: correr `supabase_to_sqlserver.py` → base `RespuestasEncuesta`
+
+## Documentación
+- Manual de usuario: `manual_usuario.docx`
+- Manual técnico: `manual_tecnico.docx`

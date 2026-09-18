@@ -541,6 +541,9 @@ if st.session_state.autenticado and st.session_state.es_camara:
     st.markdown(f"### 🏛️ Portal Cámaras — {nombre_cam}")
     st.markdown("---")
 
+    if st.session_state.seccion == "📦 Universo Arancelario":
+        st.markdown('<style>[data-testid="stTabs"]{display:none}</style>', unsafe_allow_html=True)
+
     sb_cam = get_supabase()
 
     # Empresas de esta cámara

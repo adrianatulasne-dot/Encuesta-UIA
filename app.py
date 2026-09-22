@@ -1006,7 +1006,9 @@ if st.session_state.seccion == "📋 Interés comercial":
 
     # ── PASOS ─────────────────────────────────────────────────────────────────
     camara = st.session_state.camara_actual
-    if st.session_state.solo_regional:
+    nombres_regionales_set = set(claves_df[claves_df["Tipo"].str.lower() == "regional"]["NbreCamara"].tolist())
+    tiene_alguna_regional = any(c in nombres_regionales_set for c in st.session_state.camaras_sel)
+    if tiene_alguna_regional:
         ncms_camara_todos = ncm_df["HSUSA"].astype(str).str.strip().str.zfill(6).unique().tolist()
     else:
         ncms_camara_todos = camaras_df[camaras_df["NbreCamara"].isin(st.session_state.camaras_sel)]["PartidaNCM"].tolist()

@@ -893,7 +893,7 @@ if st.session_state.autenticado and st.session_state.es_camara:
 if st.session_state.autenticado and not st.session_state.camaras_ok:
     st.subheader(f"Bienvenido/a, {st.session_state.nombre_empresa}")
     st.caption("Seleccioná las cámaras a las que pertenece tu empresa.")
-    lista_camaras = sorted(claves_df["NbreCamara"].tolist())
+    lista_camaras = sorted(claves_df[claves_df["Tipo"].str.lower() == "sectorial"]["NbreCamara"].tolist())
     camaras_elegidas = st.multiselect("Cámaras", options=lista_camaras,
                                       default=st.session_state.camaras_sel,
                                       placeholder="Elegí una o más cámaras")

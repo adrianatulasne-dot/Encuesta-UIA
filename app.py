@@ -327,6 +327,7 @@ def init():
         "es_camara": False,
         "nombre_camara": "",
         "tipo_camara": "sectorial",
+        "solo_regional": False,
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -358,7 +359,8 @@ with st.sidebar:
                 st.rerun()
     elif st.session_state.autenticado and st.session_state.contacto_ok:
         st.markdown('<p style="color:#90caf9; font-size:0.8rem; font-weight:700; margin:0.3rem 0 0.3rem 0.2rem; text-transform:uppercase; letter-spacing:0.05em;">Completá información</p>', unsafe_allow_html=True)
-        for op in ["📋 Interés comercial", "🤝 Acuerdos comerciales"]:
+        opciones_menu = ["📋 Interés comercial"] if st.session_state.solo_regional else ["📋 Interés comercial", "🤝 Acuerdos comerciales"]
+        for op in opciones_menu:
             if st.button(op, use_container_width=True, key=f"menu_{op}",
                          type="primary" if st.session_state.seccion == op else "secondary"):
                 st.session_state.seccion = op
@@ -487,11 +489,20 @@ if not st.session_state.autenticado:
                         st.session_state.guardado = True
                     if camaras:
                         cams = [r["camara"] for r in camaras]
-                        st.session_state.camaras_sel  = cams
+                        st.session_state.camaras_sel   = cams
                         st.session_state.camara_actual = cams[0]
-                        st.session_state.camaras_ok   = True
+                        st.session_state.camaras_ok    = True
+                        nombres_regionales = claves_df[claves_df["Tipo"].str.lower() == "regional"]["NbreCamara"].tolist()
+                        nombres_sectoriales = claves_df[claves_df["Tipo"].str.lower() == "sectorial"]["NbreCamara"].tolist()
+                        tiene_regional  = any(c in nombres_regionales for c in cams)
+                        tiene_sectorial = any(c in nombres_sectoriales for c in cams)
+                        st.session_state.solo_regional = tiene_regional and not tiene_sectorial
                         ncms_prev = set(st.session_state.ncm_sel)
-                        for cod in camaras_df[camaras_df["NbreCamara"].isin(cams)]["PartidaNCM"].tolist():
+                        if tiene_regional:
+                            ncms_load = ncm_df["HSUSA"].astype(str).str.strip().str.zfill(6).unique().tolist()
+                        else:
+                            ncms_load = camaras_df[camaras_df["NbreCamara"].isin(cams)]["PartidaNCM"].tolist()
+                        for cod in ncms_load:
                             st.session_state[f"ck_{cod}"] = cod in ncms_prev
                     st.rerun()
                 except Exception as e:
@@ -912,7 +923,13 @@ if st.session_state.autenticado and not st.session_state.camaras_ok:
             st.session_state.camaras_sel   = camaras_elegidas
             st.session_state.camara_actual = camaras_elegidas[0]
             st.session_state.camaras_ok    = True
-            ncms = camaras_df[camaras_df["NbreCamara"].isin(camaras_elegidas)]["PartidaNCM"].tolist()
+            tiene_regional   = any(c in lista_regionales for c in camaras_elegidas)
+            tiene_sectorial  = any(c in lista_sectoriales for c in camaras_elegidas)
+            st.session_state.solo_regional = tiene_regional and not tiene_sectorial
+            if tiene_regional:
+                ncms = ncm_df["HSUSA"].astype(str).str.strip().str.zfill(6).unique().tolist()
+            else:
+                ncms = camaras_df[camaras_df["NbreCamara"].isin(camaras_elegidas)]["PartidaNCM"].tolist()
             ncms_prev = set(st.session_state.ncm_sel)
             for cod in ncms:
                 st.session_state[f"ck_{cod}"] = cod in ncms_prev

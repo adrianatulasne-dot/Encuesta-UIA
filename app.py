@@ -1006,7 +1006,10 @@ if st.session_state.seccion == "📋 Interés comercial":
 
     # ── PASOS ─────────────────────────────────────────────────────────────────
     camara = st.session_state.camara_actual
-    ncms_camara_todos = camaras_df[camaras_df["NbreCamara"] == camara]["PartidaNCM"].tolist()
+    if st.session_state.solo_regional:
+        ncms_camara_todos = ncm_df["HSUSA"].astype(str).str.strip().str.zfill(6).unique().tolist()
+    else:
+        ncms_camara_todos = camaras_df[camaras_df["NbreCamara"].isin(st.session_state.camaras_sel)]["PartidaNCM"].tolist()
 
     # Si la cámara no tiene NCMs asignadas, saltar directamente a países
     if not ncms_camara_todos and paso == 1:

@@ -893,10 +893,13 @@ if st.session_state.autenticado and st.session_state.es_camara:
 if st.session_state.autenticado and not st.session_state.camaras_ok:
     st.subheader(f"Bienvenido/a, {st.session_state.nombre_empresa}")
     st.caption("Seleccioná las cámaras a las que pertenece tu empresa.")
-    lista_camaras = sorted(claves_df[claves_df["Tipo"].str.lower() == "sectorial"]["NbreCamara"].tolist())
-    camaras_elegidas = st.multiselect("Cámaras", options=lista_camaras,
+    lista_sectoriales = sorted(claves_df[claves_df["Tipo"].str.lower() == "sectorial"]["NbreCamara"].tolist())
+    lista_regionales  = sorted(claves_df[claves_df["Tipo"].str.lower() == "regional"]["NbreCamara"].tolist())
+    lista_camaras = lista_sectoriales + ["── Regionales ──"] + lista_regionales
+    camaras_elegidas_raw = st.multiselect("Cámaras", options=lista_camaras,
                                       default=st.session_state.camaras_sel,
                                       placeholder="Elegí una o más cámaras")
+    camaras_elegidas = [c for c in camaras_elegidas_raw if c != "── Regionales ──"]
     st.markdown("")
     if st.button("Continuar →", type="primary", use_container_width=True):
         if not camaras_elegidas:

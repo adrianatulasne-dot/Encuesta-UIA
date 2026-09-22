@@ -326,6 +326,7 @@ def init():
         "auth_modo": "login",     # "login" o "registro"
         "es_camara": False,
         "nombre_camara": "",
+        "tipo_camara": "sectorial",
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -343,15 +344,18 @@ with st.sidebar:
     st.markdown("---")
 
     if st.session_state.autenticado and st.session_state.es_camara:
-        st.markdown('<p style="color:#90caf9; font-size:0.8rem; font-weight:700; margin:0.3rem 0 0.3rem 0.2rem; text-transform:uppercase; letter-spacing:0.05em;">Portal Cámaras</p>', unsafe_allow_html=True)
+        es_regional = st.session_state.tipo_camara == "regional"
+        label_portal = "Portal Regional" if es_regional else "Portal Cámaras"
+        st.markdown(f'<p style="color:#90caf9; font-size:0.8rem; font-weight:700; margin:0.3rem 0 0.3rem 0.2rem; text-transform:uppercase; letter-spacing:0.05em;">{label_portal}</p>', unsafe_allow_html=True)
         if st.button("🏭 Ver empresas de mi cámara", use_container_width=True, key="menu_camara",
                      type="primary" if st.session_state.seccion == "🏭 Portal Cámaras" else "secondary"):
             st.session_state.seccion = "🏭 Portal Cámaras"
             st.rerun()
-        if st.button("📦 Ver universo arancelario de mi cámara", use_container_width=True, key="menu_arancel",
-                     type="primary" if st.session_state.seccion == "📦 Universo Arancelario" else "secondary"):
-            st.session_state.seccion = "📦 Universo Arancelario"
-            st.rerun()
+        if not es_regional:
+            if st.button("📦 Ver universo arancelario de mi cámara", use_container_width=True, key="menu_arancel",
+                         type="primary" if st.session_state.seccion == "📦 Universo Arancelario" else "secondary"):
+                st.session_state.seccion = "📦 Universo Arancelario"
+                st.rerun()
     elif st.session_state.autenticado and st.session_state.contacto_ok:
         st.markdown('<p style="color:#90caf9; font-size:0.8rem; font-weight:700; margin:0.3rem 0 0.3rem 0.2rem; text-transform:uppercase; letter-spacing:0.05em;">Completá información</p>', unsafe_allow_html=True)
         for op in ["📋 Interés comercial", "🤝 Acuerdos comerciales"]:
@@ -422,7 +426,7 @@ if not st.session_state.autenticado:
                     resp = sb.auth.sign_in_with_password({"email": email_in, "password": clave_in})
                     uid  = resp.user.id
                     # Verificar si es cámara
-                    camara_row = sb.table("camaras_auth").select("nombre_camara").eq("id", uid).execute().data
+                    camara_row = sb.table("camaras_auth").select("nombre_camara,tipo").eq("id", uid).execute().data
                     for k in list(st.session_state.keys()): del st.session_state[k]
                     init()
                     st.session_state.autenticado   = True
@@ -431,6 +435,7 @@ if not st.session_state.autenticado:
                     if camara_row:
                         st.session_state.es_camara     = True
                         st.session_state.nombre_camara = camara_row[0]["nombre_camara"]
+                        st.session_state.tipo_camara   = camara_row[0].get("tipo") or "sectorial"
                         st.rerun()
                     # Cargar datos guardados (solo empresas)
                     contacto = sb.table("empresa_contacto").select("*").eq("id", uid).execute().data
@@ -537,8 +542,10 @@ if not st.session_state.autenticado:
 # ═══════════════════════════════════════════════════════════════════════════════
 if st.session_state.autenticado and st.session_state.es_camara:
     import io
-    nombre_cam = st.session_state.nombre_camara
-    st.markdown(f"### 🏛️ Portal Cámaras — {nombre_cam}")
+    nombre_cam  = st.session_state.nombre_camara
+    es_regional = st.session_state.tipo_camara == "regional"
+    label_tipo  = "Portal Regional" if es_regional else "Portal Cámaras"
+    st.markdown(f"### 🏛️ {label_tipo} — {nombre_cam}")
     st.markdown("---")
 
     if st.session_state.seccion == "📦 Universo Arancelario":
@@ -576,10 +583,15 @@ if st.session_state.autenticado and st.session_state.es_camara:
         acuerdos_raw.extend(res or [])
 
     # Resumen superior
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Empresas registradas", len(ids_empresas))
-    col2.metric("Con datos de países", len({r["id_empresa"] for r in paises_raw}))
-    col3.metric("Con datos de acuerdos", len({r["id_empresa"] for r in acuerdos_raw}))
+    if es_regional:
+        col1, col2 = st.columns(2)
+        col1.metric("Empresas registradas", len(ids_empresas))
+        col2.metric("Con interés comercial declarado", len({r["id_empresa"] for r in paises_raw}))
+    else:
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Empresas registradas", len(ids_empresas))
+        col2.metric("Con datos de países", len({r["id_empresa"] for r in paises_raw}))
+        col3.metric("Con datos de acuerdos", len({r["id_empresa"] for r in acuerdos_raw}))
 
     st.markdown("---")
 
@@ -617,7 +629,11 @@ if st.session_state.autenticado and st.session_state.es_camara:
             "fecha_carga": "Fecha carga"
         })
 
-    tab1, tab2, tab3 = st.tabs(["📋 Empresas y datos", "✏️ Rectificación de cámara", "📥 Descargar Excel"])
+    if es_regional:
+        tab1, tab3 = st.tabs(["📋 Empresas y datos", "📥 Descargar Excel"])
+        tab2 = None
+    else:
+        tab1, tab2, tab3 = st.tabs(["📋 Empresas y datos", "✏️ Rectificación de cámara", "📥 Descargar Excel"])
 
     # ── TAB 1: Empresas, países, acuerdos ────────────────────────────────────
     with tab1:
@@ -629,133 +645,124 @@ if st.session_state.autenticado and st.session_state.es_camara:
         if not df_paises_show.empty:
             st.markdown("#### Países de interés declarados")
             st.dataframe(df_paises_show, use_container_width=True, hide_index=True)
-        if not df_ac_show.empty:
+        if not es_regional and not df_ac_show.empty:
             st.markdown("#### Acuerdos comerciales declarados")
             st.dataframe(df_ac_show, use_container_width=True, hide_index=True)
 
     # ── TAB 2: Rectificación de cámara ───────────────────────────────────────
-    with tab2:
-        st.markdown("#### ✏️ Rectificación de posición de cámara")
-        st.caption("Los conteos reflejan las respuestas de las empresas. La cámara puede confirmar o modificar la resultante antes de enviar a UIA.")
+    if tab2 is not None:
+        with tab2:
+            st.markdown("#### ✏️ Rectificación de posición de cámara")
+            st.caption("Los conteos reflejan las respuestas de las empresas. La cámara puede confirmar o modificar la resultante antes de enviar a UIA.")
 
-        if not acuerdos_raw:
-            st.info("No hay acuerdos cargados por las empresas de esta cámara.")
-        else:
-            # Calcular conteos por NCM × acuerdo
-            def parse_nivel_simple(v):
-                try:
-                    d = json.loads(v) if isinstance(v, str) else (v or {})
-                    return d.get("exportador","—"), d.get("importadora","—")
-                except Exception:
-                    return "—","—"
-
-            OPCIONES_EXP = ["—", "Alto", "Medio", "Bajo"]
-            OPCIONES_IMP = ["—", "Alta", "Media", "Baja"]
-
-            def resultante(alto, medio, bajo, tipo="exp"):
-                total = alto + medio + bajo
-                if total == 0:
-                    return "—"
-                # empate → más restrictiva
-                max_val = max(alto, medio, bajo)
-                if tipo == "exp":
-                    if alto == max_val: return "Alto"
-                    if medio == max_val: return "Medio"
-                    return "Bajo"
-                else:
-                    if alto == max_val: return "Alta"
-                    if medio == max_val: return "Media"
-                    return "Baja"
-
-            # Agrupar conteos
-            from collections import defaultdict
-            conteos = defaultdict(lambda: {"exp_alto":0,"exp_medio":0,"exp_bajo":0,
-                                           "imp_alta":0,"imp_media":0,"imp_baja":0})
-            for r in acuerdos_raw:
-                exp_v, imp_v = parse_nivel_simple(r.get("nivel"))
-                key = (r.get("acuerdo",""), str(r.get("ncm",""))[:6].zfill(6))
-                if exp_v == "Alto":   conteos[key]["exp_alto"]  += 1
-                elif exp_v == "Medio": conteos[key]["exp_medio"] += 1
-                elif exp_v == "Bajo":  conteos[key]["exp_bajo"]  += 1
-                if imp_v == "Alta":   conteos[key]["imp_alta"]  += 1
-                elif imp_v == "Media": conteos[key]["imp_media"] += 1
-                elif imp_v == "Baja":  conteos[key]["imp_baja"]  += 1
-
-            # Cargar rectificaciones ya guardadas
-            rect_prev = sb_cam.table("camara_rectificaciones")\
-                .select("*").eq("camara", nombre_cam).execute().data or []
-            rect_map = {(r["acuerdo"], r["ncm"]): r for r in rect_prev}
-
-            # Filtro por acuerdo
-            acuerdos_lista = sorted({r.get("acuerdo","") for r in acuerdos_raw if r.get("acuerdo")})
-            acuerdo_sel = st.selectbox("Filtrar por acuerdo", ["Todos"] + acuerdos_lista, key="rect_acuerdo")
-
-            filas = []
-            for (acuerdo, ncm), c in sorted(conteos.items()):
-                if acuerdo_sel != "Todos" and acuerdo != acuerdo_sel:
-                    continue
-                res_exp = resultante(c["exp_alto"], c["exp_medio"], c["exp_bajo"], "exp")
-                res_imp = resultante(c["imp_alta"], c["imp_media"], c["imp_baja"], "imp")
-                prev = rect_map.get((acuerdo, ncm), {})
-                filas.append({
-                    "acuerdo": acuerdo, "ncm": ncm,
-                    "exp_alto": c["exp_alto"], "exp_medio": c["exp_medio"], "exp_bajo": c["exp_bajo"],
-                    "imp_alta": c["imp_alta"], "imp_media": c["imp_media"], "imp_baja": c["imp_baja"],
-                    "exp_resultante": res_exp, "imp_resultante": res_imp,
-                    "exp_rectificado": prev.get("exp_rectificado") or res_exp,
-                    "imp_rectificado": prev.get("imp_rectificado") or res_imp,
-                })
-
-            if not filas:
-                st.info("No hay datos para el acuerdo seleccionado.")
+            if not acuerdos_raw:
+                st.info("No hay acuerdos cargados por las empresas de esta cámara.")
             else:
-                st.markdown(f"**{len(filas)} posiciones NCM**")
-                for i, fila in enumerate(filas):
-                    with st.expander(f"NCM {fila['ncm']} — {fila['acuerdo']}", expanded=False):
-                        c1, c2, c3 = st.columns(3)
-                        c1.markdown(f"**Exp. Alto:** {fila['exp_alto']}  |  **Medio:** {fila['exp_medio']}  |  **Bajo:** {fila['exp_bajo']}")
-                        c1.markdown(f"*Resultante calculada:* **{fila['exp_resultante']}**")
-                        c2.markdown(f"**Imp. Alta:** {fila['imp_alta']}  |  **Media:** {fila['imp_media']}  |  **Baja:** {fila['imp_baja']}")
-                        c2.markdown(f"*Resultante calculada:* **{fila['imp_resultante']}**")
+                def parse_nivel_simple(v):
+                    try:
+                        d = json.loads(v) if isinstance(v, str) else (v or {})
+                        return d.get("exportador","—"), d.get("importadora","—")
+                    except Exception:
+                        return "—","—"
 
-                        col_e, col_i = st.columns(2)
-                        exp_rect = col_e.selectbox(
-                            "Posición exportador (cámara)",
-                            OPCIONES_EXP,
-                            index=OPCIONES_EXP.index(fila["exp_rectificado"]) if fila["exp_rectificado"] in OPCIONES_EXP else 0,
-                            key=f"rect_exp_{i}_{fila['acuerdo']}_{fila['ncm']}"
-                        )
-                        imp_rect = col_i.selectbox(
-                            "Posición importadora (cámara)",
-                            OPCIONES_IMP,
-                            index=OPCIONES_IMP.index(fila["imp_rectificado"]) if fila["imp_rectificado"] in OPCIONES_IMP else 0,
-                            key=f"rect_imp_{i}_{fila['acuerdo']}_{fila['ncm']}"
-                        )
+                OPCIONES_EXP = ["—", "Alto", "Medio", "Bajo"]
+                OPCIONES_IMP = ["—", "Alta", "Media", "Baja"]
 
-                        if st.button("💾 Guardar posición", key=f"rect_save_{i}_{fila['acuerdo']}_{fila['ncm']}"):
-                            registro = {
-                                "camara": nombre_cam,
-                                "acuerdo": fila["acuerdo"],
-                                "ncm": fila["ncm"],
-                                "exp_alto": fila["exp_alto"], "exp_medio": fila["exp_medio"], "exp_bajo": fila["exp_bajo"],
-                                "imp_alta": fila["imp_alta"], "imp_media": fila["imp_media"], "imp_baja": fila["imp_baja"],
-                                "exp_resultante": fila["exp_resultante"],
-                                "imp_resultante": fila["imp_resultante"],
-                                "exp_rectificado": exp_rect,
-                                "imp_rectificado": imp_rect,
-                                "rectificado_por": st.session_state.user_email,
-                                "fecha_rect": datetime.now(AR_TZ).isoformat(),
-                            }
-                            sb_cam.table("camara_rectificaciones").upsert(
-                                registro, on_conflict="camara,acuerdo,ncm"
-                            ).execute()
-                            st.success("✅ Guardado")
-                            st.rerun()
+                def resultante(alto, medio, bajo, tipo="exp"):
+                    total = alto + medio + bajo
+                    if total == 0:
+                        return "—"
+                    max_val = max(alto, medio, bajo)
+                    if tipo == "exp":
+                        if alto == max_val: return "Alto"
+                        if medio == max_val: return "Medio"
+                        return "Bajo"
+                    else:
+                        if alto == max_val: return "Alta"
+                        if medio == max_val: return "Media"
+                        return "Baja"
 
-    # ── TAB 3: Descarga Excel ─────────────────────────────────────────────────
-    with tab3:
-        st.markdown("#### 📥 Descargar datos completos")
-        st.caption("Incluye hojas: Empresas, Países de interés, Acuerdos comerciales, Barreras y Rectificación de cámara.")
+                from collections import defaultdict
+                conteos = defaultdict(lambda: {"exp_alto":0,"exp_medio":0,"exp_bajo":0,
+                                               "imp_alta":0,"imp_media":0,"imp_baja":0})
+                for r in acuerdos_raw:
+                    exp_v, imp_v = parse_nivel_simple(r.get("nivel"))
+                    key = (r.get("acuerdo",""), str(r.get("ncm",""))[:6].zfill(6))
+                    if exp_v == "Alto":    conteos[key]["exp_alto"]  += 1
+                    elif exp_v == "Medio": conteos[key]["exp_medio"] += 1
+                    elif exp_v == "Bajo":  conteos[key]["exp_bajo"]  += 1
+                    if imp_v == "Alta":    conteos[key]["imp_alta"]  += 1
+                    elif imp_v == "Media": conteos[key]["imp_media"] += 1
+                    elif imp_v == "Baja":  conteos[key]["imp_baja"]  += 1
+
+                rect_prev = sb_cam.table("camara_rectificaciones")\
+                    .select("*").eq("camara", nombre_cam).execute().data or []
+                rect_map = {(r["acuerdo"], r["ncm"]): r for r in rect_prev}
+
+                acuerdos_lista = sorted({r.get("acuerdo","") for r in acuerdos_raw if r.get("acuerdo")})
+                acuerdo_sel = st.selectbox("Filtrar por acuerdo", ["Todos"] + acuerdos_lista, key="rect_acuerdo")
+
+                filas = []
+                for (acuerdo, ncm), c in sorted(conteos.items()):
+                    if acuerdo_sel != "Todos" and acuerdo != acuerdo_sel:
+                        continue
+                    res_exp = resultante(c["exp_alto"], c["exp_medio"], c["exp_bajo"], "exp")
+                    res_imp = resultante(c["imp_alta"], c["imp_media"], c["imp_baja"], "imp")
+                    prev = rect_map.get((acuerdo, ncm), {})
+                    filas.append({
+                        "acuerdo": acuerdo, "ncm": ncm,
+                        "exp_alto": c["exp_alto"], "exp_medio": c["exp_medio"], "exp_bajo": c["exp_bajo"],
+                        "imp_alta": c["imp_alta"], "imp_media": c["imp_media"], "imp_baja": c["imp_baja"],
+                        "exp_resultante": res_exp, "imp_resultante": res_imp,
+                        "exp_rectificado": prev.get("exp_rectificado") or res_exp,
+                        "imp_rectificado": prev.get("imp_rectificado") or res_imp,
+                    })
+
+                if not filas:
+                    st.info("No hay datos para el acuerdo seleccionado.")
+                else:
+                    st.markdown(f"**{len(filas)} posiciones NCM**")
+                    for i, fila in enumerate(filas):
+                        with st.expander(f"NCM {fila['ncm']} — {fila['acuerdo']}", expanded=False):
+                            c1, c2, c3 = st.columns(3)
+                            c1.markdown(f"**Exp. Alto:** {fila['exp_alto']}  |  **Medio:** {fila['exp_medio']}  |  **Bajo:** {fila['exp_bajo']}")
+                            c1.markdown(f"*Resultante calculada:* **{fila['exp_resultante']}**")
+                            c2.markdown(f"**Imp. Alta:** {fila['imp_alta']}  |  **Media:** {fila['imp_media']}  |  **Baja:** {fila['imp_baja']}")
+                            c2.markdown(f"*Resultante calculada:* **{fila['imp_resultante']}**")
+
+                            col_e, col_i = st.columns(2)
+                            exp_rect = col_e.selectbox(
+                                "Posición exportador (cámara)",
+                                OPCIONES_EXP,
+                                index=OPCIONES_EXP.index(fila["exp_rectificado"]) if fila["exp_rectificado"] in OPCIONES_EXP else 0,
+                                key=f"rect_exp_{i}_{fila['acuerdo']}_{fila['ncm']}"
+                            )
+                            imp_rect = col_i.selectbox(
+                                "Posición importadora (cámara)",
+                                OPCIONES_IMP,
+                                index=OPCIONES_IMP.index(fila["imp_rectificado"]) if fila["imp_rectificado"] in OPCIONES_IMP else 0,
+                                key=f"rect_imp_{i}_{fila['acuerdo']}_{fila['ncm']}"
+                            )
+
+                            if st.button("💾 Guardar posición", key=f"rect_save_{i}_{fila['acuerdo']}_{fila['ncm']}"):
+                                registro = {
+                                    "camara": nombre_cam,
+                                    "acuerdo": fila["acuerdo"],
+                                    "ncm": fila["ncm"],
+                                    "exp_alto": fila["exp_alto"], "exp_medio": fila["exp_medio"], "exp_bajo": fila["exp_bajo"],
+                                    "imp_alta": fila["imp_alta"], "imp_media": fila["imp_media"], "imp_baja": fila["imp_baja"],
+                                    "exp_resultante": fila["exp_resultante"],
+                                    "imp_resultante": fila["imp_resultante"],
+                                    "exp_rectificado": exp_rect,
+                                    "imp_rectificado": imp_rect,
+                                    "rectificado_por": st.session_state.user_email,
+                                    "fecha_rect": datetime.now(AR_TZ).isoformat(),
+                                }
+                                sb_cam.table("camara_rectificaciones").upsert(
+                                    registro, on_conflict="camara,acuerdo,ncm"
+                                ).execute()
+                                st.success("✅ Guardado")
+                                st.rerun()
 
     def generar_excel_camara():
         # Barreras: una fila por empresa+acuerdo
@@ -814,20 +821,24 @@ if st.session_state.autenticado and st.session_state.es_camara:
                 df_cont.to_excel(writer, sheet_name="Empresas", index=False)
             if paises_raw:
                 df_paises_show.to_excel(writer, sheet_name="Países de interés", index=False)
-            if acuerdos_raw:
-                df_ac_show.to_excel(writer, sheet_name="Acuerdos comerciales", index=False)
-            if barreras_rows:
-                pd.DataFrame(barreras_rows).to_excel(writer, sheet_name="Barreras", index=False)
-            if rect_rows:
-                pd.DataFrame(rect_rows).to_excel(writer, sheet_name="Rectificación cámara", index=False)
+            if not es_regional:
+                if acuerdos_raw:
+                    df_ac_show.to_excel(writer, sheet_name="Acuerdos comerciales", index=False)
+                if barreras_rows:
+                    pd.DataFrame(barreras_rows).to_excel(writer, sheet_name="Barreras", index=False)
+                if rect_rows:
+                    pd.DataFrame(rect_rows).to_excel(writer, sheet_name="Rectificación cámara", index=False)
         buf.seek(0)
         return buf.getvalue()
 
     with tab3:
+        caption_excel = "Incluye hojas: Empresas y Países de interés." if es_regional else "Incluye hojas: Empresas, Países de interés, Acuerdos comerciales, Barreras y Rectificación de cámara."
+        st.markdown("#### 📥 Descargar datos completos")
+        st.caption(caption_excel)
         st.download_button(
             label="⬇️ Descargar Excel",
             data=generar_excel_camara(),
-            file_name=f"camara_{nombre_cam.replace(' ','_')}.xlsx",
+            file_name=f"regional_{nombre_cam.replace(' ','_')}.xlsx" if es_regional else f"camara_{nombre_cam.replace(' ','_')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             type="primary",
             use_container_width=True,

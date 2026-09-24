@@ -678,22 +678,25 @@ if st.session_state.autenticado and st.session_state.es_uia:
     elif seccion_uia == "🤝 Acuerdos":
         if acuerdos_all:
             df_a = pd.DataFrame(acuerdos_all)
-            st.markdown(f"**{len(df_a):,} registros — {df_a['id_empresa'].nunique()} empresas**")
             ac_fil = st.selectbox("Filtrar por acuerdo", ["Todos"] + sorted(df_a["acuerdo"].unique()))
             if ac_fil != "Todos":
                 df_a = df_a[df_a["acuerdo"] == ac_fil]
+            st.markdown(f"**{len(df_a):,} registros — {df_a['id_empresa'].nunique()} empresas**")
             df_a["empresa"] = df_a["id_empresa"].map(id_to_empresa)
+            st.dataframe(df_a[["empresa","acuerdo","ncm"]].rename(columns={
+                "empresa":"Empresa","acuerdo":"Acuerdo","ncm":"NCM"
+            }), use_container_width=True, hide_index=True)
 
-            # Rectificaciones
             if rects_all:
                 st.markdown("#### Posiciones rectificadas por cámaras")
                 df_r = pd.DataFrame(rects_all)
                 if ac_fil != "Todos":
                     df_r = df_r[df_r["acuerdo"] == ac_fil]
-                st.dataframe(df_r[["camara","acuerdo","ncm","exp_rectificado","imp_rectificado","fecha_rect"]].rename(columns={
-                    "camara":"Cámara","acuerdo":"Acuerdo","ncm":"NCM",
-                    "exp_rectificado":"Pos. exportador","imp_rectificado":"Pos. importadora","fecha_rect":"Fecha"
-                }), use_container_width=True, hide_index=True)
+                if not df_r.empty:
+                    st.dataframe(df_r[["camara","acuerdo","ncm","exp_rectificado","imp_rectificado","fecha_rect"]].rename(columns={
+                        "camara":"Cámara","acuerdo":"Acuerdo","ncm":"NCM",
+                        "exp_rectificado":"Pos. exportador","imp_rectificado":"Pos. importadora","fecha_rect":"Fecha"
+                    }), use_container_width=True, hide_index=True)
         else:
             st.info("No hay datos de acuerdos cargados aún.")
 

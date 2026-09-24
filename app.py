@@ -328,6 +328,8 @@ def init():
         "nombre_camara": "",
         "tipo_camara": "sectorial",
         "solo_regional": False,
+        "es_uia": False,
+        "uia_nombre": "",
     }.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -344,7 +346,14 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     st.markdown("---")
 
-    if st.session_state.autenticado and st.session_state.es_camara:
+    if st.session_state.autenticado and st.session_state.es_uia:
+        st.markdown('<p style="color:#90caf9; font-size:0.8rem; font-weight:700; margin:0.3rem 0 0.3rem 0.2rem; text-transform:uppercase; letter-spacing:0.05em;">Portal UIA</p>', unsafe_allow_html=True)
+        for op in ["📊 Resumen ejecutivo", "🏛️ Por cámara", "🌍 Países de interés", "🤝 Acuerdos", "📥 Descargar Excel"]:
+            if st.button(op, use_container_width=True, key=f"uia_{op}",
+                         type="primary" if st.session_state.seccion == op else "secondary"):
+                st.session_state.seccion = op
+                st.rerun()
+    elif st.session_state.autenticado and st.session_state.es_camara:
         es_regional = st.session_state.tipo_camara == "regional"
         label_portal = "Portal Regional" if es_regional else "Portal Cámaras"
         st.markdown(f'<p style="color:#90caf9; font-size:0.8rem; font-weight:700; margin:0.3rem 0 0.3rem 0.2rem; text-transform:uppercase; letter-spacing:0.05em;">{label_portal}</p>', unsafe_allow_html=True)
@@ -376,7 +385,9 @@ with st.sidebar:
 
     if st.session_state.autenticado:
         st.markdown("---")
-        if st.session_state.es_camara:
+        if st.session_state.es_uia:
+            st.markdown(f'<div style="font-size:0.85rem; color:#90caf9;">🇦🇷 {st.session_state.uia_nombre}</div>', unsafe_allow_html=True)
+        elif st.session_state.es_camara:
             st.markdown(f'<div style="font-size:0.85rem; color:#90caf9;">🏛️ {st.session_state.nombre_camara}</div>', unsafe_allow_html=True)
         else:
             st.markdown(f'<div style="font-size:0.85rem; color:#90caf9;">🏢 {st.session_state.nombre_empresa}</div>', unsafe_allow_html=True)
@@ -438,6 +449,11 @@ if not st.session_state.autenticado:
                         st.session_state.es_camara     = True
                         st.session_state.nombre_camara = camara_row[0]["nombre_camara"]
                         st.session_state.tipo_camara   = camara_row[0].get("tipo") or "sectorial"
+                        st.rerun()
+                    uia_row = sb.table("uia_auth").select("nombre,rol").eq("id", uid).execute().data
+                    if uia_row:
+                        st.session_state.es_uia    = True
+                        st.session_state.uia_nombre = uia_row[0].get("nombre", "Analista UIA")
                         st.rerun()
                     # Cargar datos guardados (solo empresas)
                     contacto = sb.table("empresa_contacto").select("*").eq("id", uid).execute().data
@@ -546,6 +562,182 @@ if not st.session_state.autenticado:
                     st.rerun()
                 except Exception as e:
                     st.error(f"No se pudo registrar. Es posible que ese email ya tenga cuenta.")
+    st.stop()
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PORTAL UIA
+# ═══════════════════════════════════════════════════════════════════════════════
+if st.session_state.autenticado and st.session_state.es_uia:
+    import io
+    sb_uia = get_supabase()
+    seccion_uia = st.session_state.seccion
+
+    st.markdown(f"### 🇦🇷 Portal UIA — {st.session_state.uia_nombre}")
+    st.markdown("---")
+
+    # Cargar todos los datos
+    @st.cache_data(ttl=300)
+    def cargar_datos_uia():
+        contactos = sb_uia.table("empresa_contacto").select("*").execute().data or []
+        camaras   = sb_uia.table("empresa_camaras").select("*").execute().data or []
+        paises    = sb_uia.table("empresa_paises").select("*").execute().data or []
+        acuerdos  = sb_uia.table("empresa_acuerdos").select("*").execute().data or []
+        rects     = sb_uia.table("camara_rectificaciones").select("*").execute().data or []
+        return contactos, camaras, paises, acuerdos, rects
+
+    contactos_all, camaras_all, paises_all, acuerdos_all, rects_all = cargar_datos_uia()
+
+    id_to_empresa = {r["id"]: r.get("nombre_empresa","") for r in contactos_all}
+    empresa_to_camaras = {}
+    for r in camaras_all:
+        empresa_to_camaras.setdefault(r["id"], []).append(r["camara"])
+
+    lista_camaras_uia = sorted({r["camara"] for r in camaras_all})
+
+    # ── RESUMEN EJECUTIVO ────────────────────────────────────────────────────
+    if seccion_uia == "📊 Resumen ejecutivo":
+        total_emp   = len(contactos_all)
+        con_paises  = len({r["id_empresa"] for r in paises_all})
+        con_ac      = len({r["id_empresa"] for r in acuerdos_all})
+        total_cam   = len(lista_camaras_uia)
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Empresas registradas", total_emp)
+        c2.metric("Con interés comercial", con_paises)
+        c3.metric("Con acuerdos", con_ac)
+        c4.metric("Cámaras activas", total_cam)
+        st.markdown("---")
+
+        # Avance por cámara
+        st.markdown("#### Avance por cámara")
+        filas_cam = []
+        for cam in lista_camaras_uia:
+            ids_cam = {r["id"] for r in camaras_all if r["camara"] == cam}
+            filas_cam.append({
+                "Cámara": cam,
+                "Empresas": len(ids_cam),
+                "Con países": len({r["id_empresa"] for r in paises_all if r["id_empresa"] in ids_cam}),
+                "Con acuerdos": len({r["id_empresa"] for r in acuerdos_all if r["id_empresa"] in ids_cam}),
+            })
+        df_cam = pd.DataFrame(filas_cam).sort_values("Empresas", ascending=False)
+        st.dataframe(df_cam, use_container_width=True, hide_index=True)
+
+        # Top NCMs más marcadas
+        st.markdown("#### Top 20 NCMs con más interés comercial")
+        if paises_all:
+            df_ncm = pd.DataFrame(paises_all)
+            top_ncm = df_ncm.groupby("ncm")["id_empresa"].nunique().sort_values(ascending=False).head(20).reset_index()
+            top_ncm.columns = ["NCM", "Empresas"]
+            import plotly.express as px
+            fig = px.bar(top_ncm, x="NCM", y="Empresas", color_discrete_sequence=["#1565c0"])
+            fig.update_layout(plot_bgcolor="#0a1f44", paper_bgcolor="#0a1f44", font_color="#ffffff")
+            st.plotly_chart(fig, use_container_width=True)
+
+    # ── POR CÁMARA ───────────────────────────────────────────────────────────
+    elif seccion_uia == "🏛️ Por cámara":
+        cam_sel = st.selectbox("Seleccioná una cámara", lista_camaras_uia)
+        ids_cam = [r["id"] for r in camaras_all if r["camara"] == cam_sel]
+        cont_cam = [r for r in contactos_all if r["id"] in ids_cam]
+        pais_cam = [r for r in paises_all if r["id_empresa"] in ids_cam]
+        ac_cam   = [r for r in acuerdos_all if r["id_empresa"] in ids_cam]
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Empresas", len(ids_cam))
+        c2.metric("Con países", len({r["id_empresa"] for r in pais_cam}))
+        c3.metric("Con acuerdos", len({r["id_empresa"] for r in ac_cam}))
+
+        if cont_cam:
+            st.markdown("#### Empresas")
+            df_c = pd.DataFrame(cont_cam)[["nombre_empresa","nombre","cargo","email"]]
+            df_c.columns = ["Empresa","Responsable","Cargo","Email"]
+            st.dataframe(df_c, use_container_width=True, hide_index=True)
+        if pais_cam:
+            st.markdown("#### Países de interés")
+            df_p = pd.DataFrame(pais_cam)
+            df_p["empresa"] = df_p["id_empresa"].map(id_to_empresa)
+            st.dataframe(df_p[["empresa","pais","ncm","exporta","importa"]].rename(columns={
+                "empresa":"Empresa","pais":"País","ncm":"NCM","exporta":"Exporta","importa":"Importa"
+            }), use_container_width=True, hide_index=True)
+
+    # ── PAÍSES DE INTERÉS ────────────────────────────────────────────────────
+    elif seccion_uia == "🌍 Países de interés":
+        if paises_all:
+            df_p = pd.DataFrame(paises_all)
+            st.markdown(f"**{len(df_p):,} registros — {df_p['id_empresa'].nunique()} empresas — {df_p['pais'].nunique()} países**")
+            pais_fil = st.selectbox("Filtrar por país", ["Todos"] + sorted(df_p["pais"].unique()))
+            if pais_fil != "Todos":
+                df_p = df_p[df_p["pais"] == pais_fil]
+            df_p["empresa"] = df_p["id_empresa"].map(id_to_empresa)
+            st.dataframe(df_p[["empresa","pais","ncm","exporta","importa","conoce"]].rename(columns={
+                "empresa":"Empresa","pais":"País","ncm":"NCM","exporta":"Exporta","importa":"Importa","conoce":"Conoce mercado"
+            }), use_container_width=True, hide_index=True)
+        else:
+            st.info("No hay datos de países cargados aún.")
+
+    # ── ACUERDOS ─────────────────────────────────────────────────────────────
+    elif seccion_uia == "🤝 Acuerdos":
+        if acuerdos_all:
+            df_a = pd.DataFrame(acuerdos_all)
+            st.markdown(f"**{len(df_a):,} registros — {df_a['id_empresa'].nunique()} empresas**")
+            ac_fil = st.selectbox("Filtrar por acuerdo", ["Todos"] + sorted(df_a["acuerdo"].unique()))
+            if ac_fil != "Todos":
+                df_a = df_a[df_a["acuerdo"] == ac_fil]
+            df_a["empresa"] = df_a["id_empresa"].map(id_to_empresa)
+
+            # Rectificaciones
+            if rects_all:
+                st.markdown("#### Posiciones rectificadas por cámaras")
+                df_r = pd.DataFrame(rects_all)
+                if ac_fil != "Todos":
+                    df_r = df_r[df_r["acuerdo"] == ac_fil]
+                st.dataframe(df_r[["camara","acuerdo","ncm","exp_rectificado","imp_rectificado","fecha_rect"]].rename(columns={
+                    "camara":"Cámara","acuerdo":"Acuerdo","ncm":"NCM",
+                    "exp_rectificado":"Pos. exportador","imp_rectificado":"Pos. importadora","fecha_rect":"Fecha"
+                }), use_container_width=True, hide_index=True)
+        else:
+            st.info("No hay datos de acuerdos cargados aún.")
+
+    # ── DESCARGAR EXCEL ──────────────────────────────────────────────────────
+    elif seccion_uia == "📥 Descargar Excel":
+        st.markdown("#### 📥 Descargar datos completos")
+        cam_excel = st.selectbox("Filtrar por cámara (opcional)", ["Todas"] + lista_camaras_uia)
+
+        def generar_excel_uia(filtro_cam):
+            ids_fil = None
+            if filtro_cam != "Todas":
+                ids_fil = {r["id"] for r in camaras_all if r["camara"] == filtro_cam}
+
+            def fil(rows, key="id_empresa"):
+                return [r for r in rows if ids_fil is None or r.get(key) in ids_fil]
+
+            df_cont = pd.DataFrame(fil(contactos_all, "id"))[["nombre_empresa","nombre","cargo","email"]] if fil(contactos_all,"id") else pd.DataFrame()
+            df_p    = pd.DataFrame(fil(paises_all)) if fil(paises_all) else pd.DataFrame()
+            df_a    = pd.DataFrame(fil(acuerdos_all)) if fil(acuerdos_all) else pd.DataFrame()
+            df_rect = pd.DataFrame([r for r in rects_all if filtro_cam == "Todas" or r["camara"] == filtro_cam]) if rects_all else pd.DataFrame()
+
+            buf = io.BytesIO()
+            with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+                if not df_cont.empty:
+                    df_cont.to_excel(writer, sheet_name="Empresas", index=False)
+                if not df_p.empty:
+                    df_p.to_excel(writer, sheet_name="Países de interés", index=False)
+                if not df_a.empty:
+                    df_a.to_excel(writer, sheet_name="Acuerdos comerciales", index=False)
+                if not df_rect.empty:
+                    df_rect.to_excel(writer, sheet_name="Rectificaciones", index=False)
+            buf.seek(0)
+            return buf.getvalue()
+
+        sufijo = cam_excel.replace(" ","_") if cam_excel != "Todas" else "global"
+        st.download_button(
+            label="⬇️ Descargar Excel",
+            data=generar_excel_uia(cam_excel),
+            file_name=f"uia_{sufijo}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="primary",
+            use_container_width=True,
+        )
+
     st.stop()
 
 # ═══════════════════════════════════════════════════════════════════════════════

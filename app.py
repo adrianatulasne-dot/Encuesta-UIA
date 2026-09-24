@@ -308,6 +308,8 @@ def init():
         "matriz_interes": {},
         "paises_sel": [],
         "pais_otro": "",
+        "pais_otro_nombre": "",
+        "pais_otro_interes": {},
         "negs_sel": {},
         "neg_otro": "",
         "supabase_id": None,
@@ -1318,14 +1320,27 @@ if st.session_state.seccion == "📋 Interés comercial":
 
         # Otro país
         st.markdown("")
-        otro_check = st.checkbox("Otro país", value=bool(st.session_state.pais_otro), key="pais_otro_check")
+        otro_check = st.checkbox("Otro país", value=bool(st.session_state.get("pais_otro_nombre","")), key="pais_otro_check")
         pais_otro = ""
+        pais_otro_interes = {}
         if otro_check:
-            pais_otro = st.text_input("¿Cuál?", value=st.session_state.pais_otro,
-                                      placeholder="Ingresá el nombre del país",
+            pais_otro = st.text_input("¿Cuál/es?", value=st.session_state.get("pais_otro_nombre",""),
+                                      placeholder="Ingresá el nombre del país o países",
                                       help="A la brevedad se incorporarán datos de comercio para este destino.")
             if pais_otro:
                 st.info("📌 Registraremos tu interés. A la brevedad se incorporarán datos de ese mercado.")
+                prev_otro = st.session_state.get("pais_otro_interes", {})
+                r = st.columns([3, 1, 1, 1])
+                r[0].markdown(f'<span style="color:#90caf9; font-size:0.85rem;">{pais_otro}</span>', unsafe_allow_html=True)
+                r[1].markdown('<span style="color:#90caf9; font-size:0.85rem;">Exporta</span>', unsafe_allow_html=True)
+                r[2].markdown('<span style="color:#90caf9; font-size:0.85rem;">Importa</span>', unsafe_allow_html=True)
+                r[3].markdown('<span style="color:#90caf9; font-size:0.85rem;">Conoce el mercado</span>', unsafe_allow_html=True)
+                r2 = st.columns([3, 1, 1, 1])
+                r2[0].markdown("")
+                exp_otro = r2[1].checkbox("", value=prev_otro.get("exporta", False), key="otro_exp", label_visibility="collapsed")
+                imp_otro = r2[2].checkbox("", value=prev_otro.get("importa", False), key="otro_imp", label_visibility="collapsed")
+                con_otro = r2[3].checkbox("", value=prev_otro.get("conoce",  False), key="otro_con", label_visibility="collapsed")
+                pais_otro_interes = {"exporta": exp_otro, "importa": imp_otro, "conoce": con_otro}
 
         paises_lista = list(paises_sel)
 
@@ -1376,11 +1391,12 @@ if st.session_state.seccion == "📋 Interés comercial":
             if st.button("← Volver", use_container_width=True): st.session_state.paso = 1; st.rerun()
         with col2:
             if st.button("Continuar →", type="primary", use_container_width=True):
-                if not paises_lista:
-                    st.error("Seleccioná al menos un país.")
+                if not paises_lista and not pais_otro:
+                    st.error("Seleccioná al menos un país o completá el campo 'Otro país'.")
                 else:
-                    st.session_state.paises_sel = paises_lista
-                    st.session_state.pais_otro  = pais_otro
+                    st.session_state.paises_sel        = paises_lista
+                    st.session_state.pais_otro_nombre  = pais_otro
+                    st.session_state.pais_otro_interes = pais_otro_interes
                     st.session_state.paso = 4; st.rerun()
 
     # paso 3 movido al menú Acuerdos comerciales
@@ -1675,6 +1691,17 @@ if st.session_state.seccion == "📋 Interés comercial":
                                 "exporta":     bool(flags.get("exporta")),
                                 "importa":     bool(flags.get("importa")),
                                 "conoce":      bool(flags.get("conoce")),
+                                "fecha_carga": fecha_p,
+                            })
+                        # Agregar "otro país" si fue completado
+                        pais_otro_n = st.session_state.get("pais_otro_nombre", "")
+                        pais_otro_i = st.session_state.get("pais_otro_interes", {})
+                        if pais_otro_n:
+                            rows_paises.append({
+                                "id_empresa":  uid, "pais": pais_otro_n, "ncm": "otro",
+                                "exporta":     bool(pais_otro_i.get("exporta")),
+                                "importa":     bool(pais_otro_i.get("importa")),
+                                "conoce":      bool(pais_otro_i.get("conoce")),
                                 "fecha_carga": fecha_p,
                             })
                         if rows_paises:

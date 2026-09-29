@@ -1705,17 +1705,21 @@ if st.session_state.seccion == "📋 Interés comercial":
             with col2:
                 if st.button("➕ Nueva posición", use_container_width=True):
                     # Mantiene camara y usuario, limpia datos de encuesta
-                    st.session_state.supabase_id    = None
-                    st.session_state.ncm_sel        = []
-                    st.session_state.paises_sel     = []
-                    st.session_state.pais_otro      = ""
-                    st.session_state.matriz_interes = {}
-                    st.session_state.negs_sel       = {}
-                    st.session_state.neg_otro       = ""
-                    st.session_state.comentario     = ""
-                    st.session_state.barreras       = {}
-                    st.session_state.guardado       = False
-                    st.session_state.paso           = 1
+                    st.session_state.supabase_id           = None
+                    st.session_state.ncm_sel               = []
+                    st.session_state.paises_sel            = []
+                    st.session_state.pais_otro             = ""
+                    st.session_state.pais_otro_nombre      = ""
+                    st.session_state.pais_otro_interes     = {}
+                    st.session_state.matriz_interes        = {}
+                    st.session_state.negs_sel              = {}
+                    st.session_state.neg_otro              = ""
+                    st.session_state.comentario            = ""
+                    st.session_state.barreras              = {}
+                    st.session_state.guardado              = False
+                    st.session_state.paso                  = 1
+                    st.session_state.promocion_sel         = {}
+                    st.session_state.promocion_observaciones = ""
                     ncms_camara = camaras_df[camaras_df["NbreCamara"] == camara]["PartidaNCM"].tolist()
                     st.session_state.ncm_sel = []
                     for cod in ncms_camara:

@@ -2442,6 +2442,28 @@ elif st.session_state.seccion == "📄 Descargar resumen":
                         if b.get("disciplinas"):
                             story.append(Paragraph(f"<b>Otras disciplinas:</b> {', '.join(b['disciplinas'])}", estilo_body))
 
+            # ── SECCIÓN 3: Promoción Comercial — desde DB ─────────────────
+            promo_db = sb_pdf.table("empresa_promocion").select("*").eq("id_empresa", uid_pdf).execute().data or []
+            if promo_db:
+                story.append(Spacer(1, 0.3*cm))
+                story.append(Paragraph("3. Promoción Comercial", estilo_h2))
+                story.append(Spacer(1, 0.2*cm))
+                obs_general = next((r.get("observaciones","") for r in promo_db if r.get("observaciones")), "")
+                paises_promo = sorted({r["pais"] for r in promo_db})
+                for pais_p in paises_promo:
+                    story.append(Paragraph(f"País: {pais_p}", estilo_h3))
+                    filas_p = [r for r in promo_db if r["pais"] == pais_p]
+                    for r in filas_p:
+                        acciones = r.get("acciones") or []
+                        if acciones:
+                            story.append(Paragraph(", ".join(acciones), estilo_body))
+                        if r.get("otros_texto"):
+                            story.append(Paragraph(f"<b>Otros:</b> {r['otros_texto']}", estilo_body))
+                    story.append(Spacer(1, 0.2*cm))
+                if obs_general:
+                    story.append(Paragraph(f"<b>Observaciones:</b> {obs_general}", estilo_body))
+                story.append(Spacer(1, 0.3*cm))
+
             story.append(Spacer(1, 0.5*cm))
             story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#999999")))
             story.append(Paragraph("Elaboración propia de la UIA. Información confidencial.", estilo_small))

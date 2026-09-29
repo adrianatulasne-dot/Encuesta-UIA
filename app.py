@@ -1115,6 +1115,10 @@ if st.session_state.autenticado and not st.session_state.camaras_ok:
     if st.button("Continuar →", type="primary", use_container_width=True):
         if not camaras_elegidas:
             st.error("Seleccioná al menos una cámara.")
+        elif len(camaras_elegidas) > 5:
+            st.error("Podés seleccionar un máximo de 5 cámaras. Deseleccioná algunas y volvé a intentarlo.")
+            st.session_state.camaras_sel = []
+            st.rerun()
         else:
             sb  = get_supabase()
             uid = st.session_state.user_id

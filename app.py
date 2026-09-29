@@ -310,6 +310,8 @@ def init():
         "pais_otro": "",
         "pais_otro_nombre": "",
         "pais_otro_interes": {},
+        "promocion_sel": {},
+        "promocion_observaciones": "",
         "negs_sel": {},
         "neg_otro": "",
         "supabase_id": None,
@@ -814,6 +816,7 @@ if st.session_state.autenticado and st.session_state.es_camara:
     if paises_raw:
         df_p = pd.DataFrame(paises_raw)
         df_p["empresa"] = df_p["id_empresa"].map(id_to_empresa).fillna(df_p["id_empresa"])
+        df_p["ncm"] = df_p["ncm"].apply(lambda x: "— (otro)" if x == "otro" else x)
         df_paises_show = df_p[["empresa","pais","ncm","exporta","importa","conoce","fecha_carga"]].rename(columns={
             "empresa": "Empresa", "pais": "País", "ncm": "NCM",
             "exporta": "Exporta", "importa": "Importa", "conoce": "Conoce mercado",
@@ -1386,6 +1389,49 @@ if st.session_state.seccion == "📋 Interés comercial":
 
             st.session_state.matriz_interes = matriz
 
+        # ── PROMOCIÓN COMERCIAL ──────────────────────────────────────────────
+        todos_paises_promo = sorted(paises_lista) + ([pais_otro] if pais_otro else [])
+        if todos_paises_promo:
+            st.markdown("---")
+            st.markdown("#### 📣 Promoción comercial")
+            st.caption("¿Considerás de interés que se desarrollen algunas de las siguientes acciones de promoción comercial para los destinos seleccionados?")
+            ACCIONES_PROMO = [
+                "Ferias",
+                "Rondas de negocios",
+                "Misiones comerciales en el exterior",
+                "Misiones de importadores e inversores extranjeros a la Argentina",
+                "Seminarios temáticos",
+                "Capacitaciones",
+                "Inteligencia comercial",
+                "Estudios de mercado",
+                "Programas de acompañamiento",
+                "Otros",
+            ]
+            promo_sel = dict(st.session_state.get("promocion_sel", {}))
+            for pais_p in todos_paises_promo:
+                st.markdown(f"**🌍 {pais_p}**")
+                prev_p = promo_sel.get(pais_p, {})
+                acciones_p = []
+                for acc in ACCIONES_PROMO:
+                    key_acc = f"promo_{pais_p}_{acc}"
+                    if st.checkbox(acc, value=acc in prev_p.get("acciones", []), key=key_acc):
+                        acciones_p.append(acc)
+                otros_texto_p = ""
+                if "Otros" in acciones_p:
+                    otros_texto_p = st.text_input(
+                        "Especificá cuáles:", value=prev_p.get("otros_texto", ""),
+                        key=f"promo_otros_{pais_p}"
+                    )
+                promo_sel[pais_p] = {"acciones": acciones_p, "otros_texto": otros_texto_p}
+                st.markdown("")
+            st.session_state.promocion_sel = promo_sel
+            promo_obs = st.text_area(
+                "Observaciones generales sobre promoción comercial:",
+                value=st.session_state.get("promocion_observaciones", ""),
+                height=80, key="promo_observaciones"
+            )
+            st.session_state.promocion_observaciones = promo_obs
+
         col1, col2 = st.columns(2)
         with col1:
             if st.button("← Volver", use_container_width=True): st.session_state.paso = 1; st.rerun()
@@ -1706,6 +1752,25 @@ if st.session_state.seccion == "📋 Interés comercial":
                             })
                         if rows_paises:
                             sb.table("empresa_paises").insert(rows_paises).execute()
+                        # Guardar promoción comercial
+                        promo_data = st.session_state.get("promocion_sel", {})
+                        promo_obs  = st.session_state.get("promocion_observaciones", "")
+                        if promo_data:
+                            if reemplazar_p:
+                                sb.table("empresa_promocion").delete().eq("id_empresa", uid).execute()
+                            rows_promo = []
+                            for pais_pr, datos_pr in promo_data.items():
+                                if datos_pr.get("acciones"):
+                                    rows_promo.append({
+                                        "id_empresa":    uid,
+                                        "pais":          pais_pr,
+                                        "acciones":      datos_pr["acciones"],
+                                        "otros_texto":   datos_pr.get("otros_texto", ""),
+                                        "observaciones": promo_obs,
+                                        "fecha_carga":   fecha_p,
+                                    })
+                            if rows_promo:
+                                sb.table("empresa_promocion").insert(rows_promo).execute()
                         # Actualizar contacto con comentario
                         sb.table("empresa_contacto").update({
                             "nombre_empresa": st.session_state.nombre_empresa,

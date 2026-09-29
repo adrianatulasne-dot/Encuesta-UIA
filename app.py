@@ -1679,6 +1679,20 @@ if st.session_state.seccion == "📋 Interés comercial":
                     else:
                         st.info("Sin datos para las subpartidas seleccionadas.")
 
+        # Bloque separado para "Otro país"
+        pais_otro_n = st.session_state.get("pais_otro_nombre", "")
+        pais_otro_i = st.session_state.get("pais_otro_interes", {})
+        if pais_otro_n:
+            with st.expander(f"🌍 Otro país: {pais_otro_n}", expanded=True):
+                filas_otro = [{
+                    "NCM": "—",
+                    "Descripción": "(interés general, sin NCM específico)",
+                    "Exporta":        "✓" if pais_otro_i.get("exporta") else "",
+                    "Importa":        "✓" if pais_otro_i.get("importa") else "",
+                    "Conoce mercado": "✓" if pais_otro_i.get("conoce")  else "",
+                }]
+                st.dataframe(pd.DataFrame(filas_otro), use_container_width=True, hide_index=True)
+
         st.markdown("---")
         if st.session_state.guardado:
             st.success("✅ Respuesta guardada correctamente. ¡Muchas gracias!")

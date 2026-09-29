@@ -1630,7 +1630,7 @@ if st.session_state.seccion == "📋 Interés comercial":
         # ── Detalle por subpartida NCM con datos de comercio ──────────────
         st.markdown("#### Ver detalle por subpartida NCM con datos de comercio")
 
-        ncm_sel_set = set(st.session_state.ncm_sel)
+        ncm_sel_set = {n for n in st.session_state.ncm_sel if n != "otro"}
         paises_elegidos = [p for p in st.session_state.paises_sel if p in NOMBRE_MUNDO or p in PAIS_CODINDEC]
         matriz = st.session_state.matriz_interes
 

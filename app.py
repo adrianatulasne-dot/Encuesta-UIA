@@ -656,25 +656,48 @@ if st.session_state.autenticado and st.session_state.es_uia:
             df_c.columns = ["Empresa","Responsable","Cargo","Email"]
             st.dataframe(df_c, use_container_width=True, hide_index=True)
         if pais_cam:
-            st.markdown("#### Países de interés")
             df_p = pd.DataFrame(pais_cam)
             df_p["empresa"] = df_p["id_empresa"].map(id_to_empresa)
-            st.dataframe(df_p[["empresa","pais","ncm","exporta","importa"]].rename(columns={
-                "empresa":"Empresa","pais":"País","ncm":"NCM","exporta":"Exporta","importa":"Importa"
-            }), use_container_width=True, hide_index=True)
+            df_p_list  = df_p[df_p["ncm"] != "otro"]
+            df_p_otros = df_p[df_p["ncm"] == "otro"]
+            if not df_p_list.empty:
+                st.markdown("#### Países de interés")
+                st.dataframe(df_p_list[["empresa","pais","ncm","exporta","importa"]].rename(columns={
+                    "empresa":"Empresa","pais":"País","ncm":"NCM","exporta":"Exporta","importa":"Importa"
+                }), use_container_width=True, hide_index=True)
+            if not df_p_otros.empty:
+                st.markdown("#### Otros países declarados")
+                st.dataframe(df_p_otros[["empresa","pais","exporta","importa","conoce"]].rename(columns={
+                    "empresa":"Empresa","pais":"País","exporta":"Exporta","importa":"Importa","conoce":"Conoce mercado"
+                }), use_container_width=True, hide_index=True)
 
     # ── PAÍSES DE INTERÉS ────────────────────────────────────────────────────
     elif seccion_uia == "🌍 Países de interés":
         if paises_all:
             df_p = pd.DataFrame(paises_all)
-            st.markdown(f"**{len(df_p):,} registros — {df_p['id_empresa'].nunique()} empresas — {df_p['pais'].nunique()} países**")
-            pais_fil = st.selectbox("Filtrar por país", ["Todos"] + sorted(df_p["pais"].unique()))
-            if pais_fil != "Todos":
-                df_p = df_p[df_p["pais"] == pais_fil]
             df_p["empresa"] = df_p["id_empresa"].map(id_to_empresa)
-            st.dataframe(df_p[["empresa","pais","ncm","exporta","importa","conoce"]].rename(columns={
-                "empresa":"Empresa","pais":"País","ncm":"NCM","exporta":"Exporta","importa":"Importa","conoce":"Conoce mercado"
-            }), use_container_width=True, hide_index=True)
+            df_listado = df_p[df_p["ncm"] != "otro"].copy()
+            df_otros   = df_p[df_p["ncm"] == "otro"].copy()
+
+            st.markdown(f"**{df_p['id_empresa'].nunique()} empresas — {df_p['pais'].nunique()} países declarados ({len(df_otros)} con 'otro país')**")
+
+            st.markdown("#### Países del listado")
+            if not df_listado.empty:
+                pais_fil = st.selectbox("Filtrar por país", ["Todos"] + sorted(df_listado["pais"].unique()))
+                df_show = df_listado if pais_fil == "Todos" else df_listado[df_listado["pais"] == pais_fil]
+                st.dataframe(df_show[["empresa","pais","ncm","exporta","importa","conoce"]].rename(columns={
+                    "empresa":"Empresa","pais":"País","ncm":"NCM","exporta":"Exporta","importa":"Importa","conoce":"Conoce mercado"
+                }), use_container_width=True, hide_index=True)
+            else:
+                st.info("Sin datos de países del listado.")
+
+            st.markdown("#### Otros países declarados")
+            if not df_otros.empty:
+                st.dataframe(df_otros[["empresa","pais","exporta","importa","conoce"]].rename(columns={
+                    "empresa":"Empresa","pais":"País","exporta":"Exporta","importa":"Importa","conoce":"Conoce mercado"
+                }), use_container_width=True, hide_index=True)
+            else:
+                st.info("Ninguna empresa declaró 'otro país'.")
         else:
             st.info("No hay datos de países cargados aún.")
 

@@ -658,8 +658,8 @@ if st.session_state.autenticado and st.session_state.es_uia:
         if pais_cam:
             df_p = pd.DataFrame(pais_cam)
             df_p["empresa"] = df_p["id_empresa"].map(id_to_empresa)
-            df_p_list  = df_p[df_p["ncm"] != "otro"]
-            df_p_otros = df_p[df_p["ncm"] == "otro"]
+            df_p_list  = df_p[~df_p["ncm"].str.startswith("otro")]
+            df_p_otros = df_p[df_p["ncm"].str.startswith("otro")]
             if not df_p_list.empty:
                 st.markdown("#### Países de interés")
                 st.dataframe(df_p_list[["empresa","pais","ncm","exporta","importa"]].rename(columns={
@@ -676,8 +676,8 @@ if st.session_state.autenticado and st.session_state.es_uia:
         if paises_all:
             df_p = pd.DataFrame(paises_all)
             df_p["empresa"] = df_p["id_empresa"].map(id_to_empresa)
-            df_listado = df_p[df_p["ncm"] != "otro"].copy()
-            df_otros   = df_p[df_p["ncm"] == "otro"].copy()
+            df_listado = df_p[~df_p["ncm"].str.startswith("otro")].copy()
+            df_otros   = df_p[df_p["ncm"].str.startswith("otro")].copy()
 
             st.markdown(f"**{df_p['id_empresa'].nunique()} empresas — {df_p['pais'].nunique()} países declarados ({len(df_otros)} con 'otro país')**")
 
@@ -848,7 +848,7 @@ if st.session_state.autenticado and st.session_state.es_camara:
     if paises_raw:
         df_p = pd.DataFrame(paises_raw)
         df_p["empresa"] = df_p["id_empresa"].map(id_to_empresa).fillna(df_p["id_empresa"])
-        df_p["ncm"] = df_p["ncm"].apply(lambda x: "— (otro)" if x == "otro" else x)
+        df_p["ncm"] = df_p["ncm"].apply(lambda x: "— (otro)" if str(x).startswith("otro") else x)
         df_paises_show = df_p[["empresa","pais","ncm","exporta","importa","conoce","fecha_carga"]].rename(columns={
             "empresa": "Empresa", "pais": "País", "ncm": "NCM",
             "exporta": "Exporta", "importa": "Importa", "conoce": "Conoce mercado",
@@ -1664,7 +1664,7 @@ if st.session_state.seccion == "📋 Interés comercial":
         # ── Detalle por subpartida NCM con datos de comercio ──────────────
         st.markdown("#### Ver detalle por subpartida NCM con datos de comercio")
 
-        ncm_sel_set = {n for n in st.session_state.ncm_sel if n != "otro"}
+        ncm_sel_set = {n for n in st.session_state.ncm_sel if not str(n).startswith("otro")}
         paises_elegidos = [p for p in st.session_state.paises_sel if p in NOMBRE_MUNDO or p in PAIS_CODINDEC]
         matriz = st.session_state.matriz_interes
 

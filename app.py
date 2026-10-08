@@ -581,7 +581,7 @@ if st.session_state.autenticado and st.session_state.es_uia:
 
     # Cargar todos los datos
     @st.cache_data(ttl=300)
-    def cargar_datos_uia():
+    def cargar_datos_uia(_ts):
         contactos = sb_uia.table("empresa_contacto").select("*").execute().data or []
         camaras   = sb_uia.table("empresa_camaras").select("*").execute().data or []
         paises    = sb_uia.table("empresa_paises").select("*").execute().data or []
@@ -589,7 +589,12 @@ if st.session_state.autenticado and st.session_state.es_uia:
         rects     = sb_uia.table("camara_rectificaciones").select("*").execute().data or []
         return contactos, camaras, paises, acuerdos, rects
 
-    contactos_all, camaras_all, paises_all, acuerdos_all, rects_all = cargar_datos_uia()
+    if "uia_ts" not in st.session_state:
+        st.session_state.uia_ts = 0
+    if st.button("🔄 Recargar datos", key="btn_reload_uia"):
+        st.session_state.uia_ts += 1
+
+    contactos_all, camaras_all, paises_all, acuerdos_all, rects_all = cargar_datos_uia(st.session_state.uia_ts)
 
     id_to_empresa = {r["id"]: r.get("nombre_empresa","") for r in contactos_all}
     empresa_to_camaras = {}

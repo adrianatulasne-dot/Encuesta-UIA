@@ -599,14 +599,15 @@ if st.session_state.autenticado and st.session_state.es_uia:
         paises    = fetch_all("empresa_paises")
         acuerdos  = fetch_all("empresa_acuerdos")
         rects     = fetch_all("camara_rectificaciones")
-        return contactos, camaras, paises, acuerdos, rects
+        promo     = fetch_all("empresa_promocion")
+        return contactos, camaras, paises, acuerdos, rects, promo
 
     if "uia_ts" not in st.session_state:
         st.session_state.uia_ts = 0
     if st.button("🔄 Recargar datos", key="btn_reload_uia"):
         st.session_state.uia_ts += 1
 
-    contactos_all, camaras_all, paises_all, acuerdos_all, rects_all = cargar_datos_uia(st.session_state.uia_ts)
+    contactos_all, camaras_all, paises_all, acuerdos_all, rects_all, promo_all = cargar_datos_uia(st.session_state.uia_ts)
 
     id_to_empresa = {r["id"]: r.get("nombre_empresa","") for r in contactos_all}
     empresa_to_camaras = {}
@@ -773,11 +774,15 @@ if st.session_state.autenticado and st.session_state.es_uia:
             df_p    = pd.DataFrame(fil(paises_all)) if fil(paises_all) else pd.DataFrame()
             df_a    = pd.DataFrame(fil(acuerdos_all)) if fil(acuerdos_all) else pd.DataFrame()
             df_rect = pd.DataFrame([r for r in rects_all if filtro_cam == "Todas" or r["camara"] == filtro_cam]) if rects_all else pd.DataFrame()
+            df_promo = pd.DataFrame(fil(promo_all)) if fil(promo_all) else pd.DataFrame()
 
             if not df_p.empty:
                 df_p.insert(0, "nombre_empresa", df_p["id_empresa"].map(id_to_empresa))
             if not df_a.empty:
                 df_a.insert(0, "nombre_empresa", df_a["id_empresa"].map(id_to_empresa))
+            if not df_promo.empty:
+                df_promo.insert(0, "nombre_empresa", df_promo["id_empresa"].map(id_to_empresa))
+                df_promo["acciones"] = df_promo["acciones"].apply(lambda x: ", ".join(x) if isinstance(x, list) else x)
 
             buf = io.BytesIO()
             with pd.ExcelWriter(buf, engine="openpyxl") as writer:
@@ -787,6 +792,8 @@ if st.session_state.autenticado and st.session_state.es_uia:
                     df_p.to_excel(writer, sheet_name="Países de interés", index=False)
                 if not df_a.empty:
                     df_a.to_excel(writer, sheet_name="Acuerdos comerciales", index=False)
+                if not df_promo.empty:
+                    df_promo.to_excel(writer, sheet_name="Promoción comercial", index=False)
                 if not df_rect.empty:
                     df_rect.to_excel(writer, sheet_name="Rectificaciones", index=False)
             buf.seek(0)

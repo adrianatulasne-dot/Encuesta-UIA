@@ -683,6 +683,7 @@ if st.session_state.autenticado and st.session_state.es_uia:
             df_p = pd.DataFrame(paises_all)
             df_p["empresa"] = df_p["id_empresa"].map(id_to_empresa)
             df_p["ncm"] = df_p["ncm"].astype(str).str.strip()
+            st.caption(f"DEBUG ncm únicos: {sorted(df_p['ncm'].unique().tolist())}")
             df_listado = df_p[df_p["ncm"] != "otro"].copy()
             df_otros   = df_p[df_p["ncm"] == "otro"].copy()
 

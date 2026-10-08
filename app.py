@@ -581,12 +581,24 @@ if st.session_state.autenticado and st.session_state.es_uia:
 
     # Cargar todos los datos
     @st.cache_data(ttl=300)
+    def fetch_all(tabla):
+        rows = []
+        page = 0
+        page_size = 1000
+        while True:
+            chunk = sb_uia.table(tabla).select("*").range(page * page_size, (page + 1) * page_size - 1).execute().data or []
+            rows.extend(chunk)
+            if len(chunk) < page_size:
+                break
+            page += 1
+        return rows
+
     def cargar_datos_uia(_ts):
-        contactos = sb_uia.table("empresa_contacto").select("*").execute().data or []
-        camaras   = sb_uia.table("empresa_camaras").select("*").execute().data or []
-        paises    = sb_uia.table("empresa_paises").select("*").execute().data or []
-        acuerdos  = sb_uia.table("empresa_acuerdos").select("*").execute().data or []
-        rects     = sb_uia.table("camara_rectificaciones").select("*").execute().data or []
+        contactos = fetch_all("empresa_contacto")
+        camaras   = fetch_all("empresa_camaras")
+        paises    = fetch_all("empresa_paises")
+        acuerdos  = fetch_all("empresa_acuerdos")
+        rects     = fetch_all("camara_rectificaciones")
         return contactos, camaras, paises, acuerdos, rects
 
     if "uia_ts" not in st.session_state:

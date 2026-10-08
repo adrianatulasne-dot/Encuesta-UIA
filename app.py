@@ -774,6 +774,11 @@ if st.session_state.autenticado and st.session_state.es_uia:
             df_a    = pd.DataFrame(fil(acuerdos_all)) if fil(acuerdos_all) else pd.DataFrame()
             df_rect = pd.DataFrame([r for r in rects_all if filtro_cam == "Todas" or r["camara"] == filtro_cam]) if rects_all else pd.DataFrame()
 
+            if not df_p.empty:
+                df_p.insert(0, "nombre_empresa", df_p["id_empresa"].map(id_to_empresa))
+            if not df_a.empty:
+                df_a.insert(0, "nombre_empresa", df_a["id_empresa"].map(id_to_empresa))
+
             buf = io.BytesIO()
             with pd.ExcelWriter(buf, engine="openpyxl") as writer:
                 if not df_cont.empty:

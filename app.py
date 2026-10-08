@@ -658,8 +658,8 @@ if st.session_state.autenticado and st.session_state.es_uia:
         if pais_cam:
             df_p = pd.DataFrame(pais_cam)
             df_p["empresa"] = df_p["id_empresa"].map(id_to_empresa)
-            df_p_list  = df_p[~df_p["ncm"].str.startswith("otro")]
-            df_p_otros = df_p[df_p["ncm"].str.startswith("otro")]
+            df_p_list  = df_p[~df_p["ncm"].str.startswith("otro", na=False)]
+            df_p_otros = df_p[df_p["ncm"].str.startswith("otro", na=False)]
             if not df_p_list.empty:
                 st.markdown("#### Países de interés")
                 st.dataframe(df_p_list[["empresa","pais","ncm","exporta","importa"]].rename(columns={
@@ -676,8 +676,8 @@ if st.session_state.autenticado and st.session_state.es_uia:
         if paises_all:
             df_p = pd.DataFrame(paises_all)
             df_p["empresa"] = df_p["id_empresa"].map(id_to_empresa)
-            df_listado = df_p[~df_p["ncm"].str.startswith("otro")].copy()
-            df_otros   = df_p[df_p["ncm"].str.startswith("otro")].copy()
+            df_listado = df_p[~df_p["ncm"].str.startswith("otro", na=False)].copy()
+            df_otros   = df_p[df_p["ncm"].str.startswith("otro", na=False)].copy()
 
             st.markdown(f"**{df_p['id_empresa'].nunique()} empresas — {df_p['pais'].nunique()} países declarados ({len(df_otros)} con 'otro país')**")
 
